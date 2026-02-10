@@ -1,0 +1,11 @@
+{
+  "name": "modulation-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deployable static web app for modulation and demodulation visualization",
+  "scripts": {
+    "dev": "python3 -m http.server 4173",
+    "start": "python3 -m http.server 4173",
+    "build": "echo 'Static site - no build required'"
+  }
+}

@@ -54,7 +54,7 @@ describe("accessibility audit checks", () => {
     const statusText = document.getElementById("statusText");
 
     expect(skipLink).toBeTruthy();
-    expect(skipLink?.getAttribute("href")).toBe("#main-content");
+    expect(skipLink?.getAttribute("href")).toBe("#family");
     expect(main).toBeTruthy();
     expect(statusText?.getAttribute("role")).toBe("status");
     expect(statusText?.getAttribute("aria-live")).toBe("polite");

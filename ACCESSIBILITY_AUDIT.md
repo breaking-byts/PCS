@@ -6,7 +6,7 @@
 - Core color contrast for primary text tokens
 
 ## Changes Applied
-- Updated skip-link target to the main landmark (`#main-content`) and made main focusable.
+- Updated skip-link target to the first primary studio control (`#family`) for immediate keyboard interaction.
 - Added semantic status region attributes (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`).
 - Added accessible labels to all plot canvases (`role="img"` + `aria-label`).
 - Added automated accessibility checks in `tests/a11y/accessibility.audit.test.js`.

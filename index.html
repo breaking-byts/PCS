@@ -12,10 +12,10 @@
 </head>
 
 <body>
-  <a href="#studio" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="#top">Modulation Studio</a>
+      <a class="brand" href="#main-content">Modulation Studio</a>
       <nav class="topnav" aria-label="Main navigation">
         <a href="#studio">Studio</a>
         <a href="#scenarios">Scenarios</a>
@@ -24,7 +24,7 @@
     </div>
   </header>
 
-  <main class="app-shell" id="top">
+  <main class="app-shell" id="main-content" tabindex="-1">
     <section class="hero panel-soft" data-section="hero">
       <div class="hero-copy">
         <p class="eyebrow">Signal Systems Lab</p>
@@ -62,7 +62,7 @@
           <h2>Interactive Modulation Workbench</h2>
         </div>
         <div class="status-wrap">
-          <span id="statusText" class="status info" aria-live="polite">Ready</span>
+          <span id="statusText" class="status info" role="status" aria-live="polite" aria-atomic="true">Ready</span>
           <span id="bandwidthEstimate" class="bandwidth">Estimated Occupied BW: --</span>
         </div>
       </div>
@@ -137,6 +137,17 @@
             <label>
               RX Phase Offset (deg)
               <input id="rxPhaseOffset" type="number" value="0" min="-180" max="180" step="1" />
+            </label>
+            <label>
+              Receiver Model
+              <select id="receiverModel">
+                <option value="manual">Manual Coherent</option>
+                <option value="pll">Adaptive PLL</option>
+              </select>
+            </label>
+            <label class="checkbox-row">
+              <input id="timingRecovery" type="checkbox" />
+              Enable Timing Recovery
             </label>
           </fieldset>
 
@@ -237,23 +248,23 @@
     <section class="plot-grid" data-section="plots">
       <article class="panel plot-card">
         <h3>Baseband (Time Domain)</h3>
-        <canvas id="basebandCanvas" width="720" height="240"></canvas>
+        <canvas id="basebandCanvas" width="720" height="240" role="img" aria-label="Baseband time domain waveform plot"></canvas>
       </article>
       <article class="panel plot-card">
         <h3>Received Signal (After Channel)</h3>
-        <canvas id="modulatedCanvas" width="720" height="240"></canvas>
+        <canvas id="modulatedCanvas" width="720" height="240" role="img" aria-label="Received signal waveform after channel effects"></canvas>
       </article>
       <article class="panel plot-card">
         <h3>Demodulated Signal (Time Domain)</h3>
-        <canvas id="demodulatedCanvas" width="720" height="240"></canvas>
+        <canvas id="demodulatedCanvas" width="720" height="240" role="img" aria-label="Demodulated signal time domain waveform"></canvas>
       </article>
       <article class="panel plot-card">
         <h3>Frequency Spectrum (FFT Magnitude)</h3>
-        <canvas id="spectrumCanvas" width="720" height="240"></canvas>
+        <canvas id="spectrumCanvas" width="720" height="240" role="img" aria-label="Frequency spectrum magnitude plot"></canvas>
       </article>
       <article class="panel plot-card" id="constellationPanel">
         <h3>Constellation Plot</h3>
-        <canvas id="constellationCanvas" width="720" height="260"></canvas>
+        <canvas id="constellationCanvas" width="720" height="260" role="img" aria-label="I-Q constellation plot for digital modulation"></canvas>
       </article>
     </section>
 

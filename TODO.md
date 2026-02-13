@@ -3,7 +3,7 @@
 ## Audit Remediation (2026-02-13)
 - [x] 1) Security hardening: remove third-party runtime CDN dependencies and add CSP/security headers on all deploy targets.
 - [x] 2) Docs correctness: update README to reflect modular `js/` architecture and current startup workflow.
-- [x] 3) Tooling compatibility: align scripts so `npm run dev` works without requiring Bun.
+- [x] 3) Tooling compatibility: align scripts so local development uses Bun-first commands.
 - [x] 4) Maintainability: replace hardcoded sample-rate literals with shared `SAMPLE_RATE` constant.
 - [x] 5) Refactor cleanup: remove unused function parameters and stale API surface.
 - [x] 6) Review pass: run smoke checks and re-audit diffs before commit.
@@ -25,7 +25,7 @@
 - [x] Deployment configs for Netlify and Vercel
 
 ## Remaining Hardening
-- [ ] Add automated unit tests for modulation/demodulation correctness
-- [ ] Add end-to-end smoke tests for UI controls and exports
-- [ ] Add optional advanced receiver models (timing recovery/PLL)
-- [ ] Add accessibility audit pass (keyboard and contrast deep check)
+- [x] Add automated unit tests for modulation/demodulation correctness
+- [x] Add end-to-end smoke tests for UI controls and exports
+- [x] Add optional advanced receiver models (timing recovery/PLL)
+- [x] Add accessibility audit pass (keyboard and contrast deep check)

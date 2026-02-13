@@ -126,6 +126,109 @@ export function computeCorrelation(a, b) {
   return num / Math.max(1e-9, Math.sqrt(denA * denB));
 }
 
+function clampValue(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function symbolSamplesForScheme(schemeId, bitSamples) {
+  if (schemeId === "qpsk") return bitSamples * 2;
+  if (schemeId === "qam16") return bitSamples * 4;
+  return bitSamples;
+}
+
+export function estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples) {
+  const model = params.receiverModel || "manual";
+  let receiverFc = params.receiverFc;
+  let receiverPhase = params.receiverPhase;
+  let timingOffset = 0;
+
+  if (!rxSignal.length || !t.length) {
+    return { receiverFc, receiverPhase, timingOffset };
+  }
+
+  const sampleLimit = Math.min(rxSignal.length, Math.max(128, bitSamples * 64));
+  if (model === "pll" && sampleLimit > 16) {
+    let sumI = 0;
+    let sumQ = 0;
+    let sum2Re = 0;
+    let sum2Im = 0;
+    let sum4Re = 0;
+    let sum4Im = 0;
+
+    for (let i = 0; i < sampleLimit; i += 1) {
+      const theta = 2 * Math.PI * receiverFc * t[i] + receiverPhase;
+      const iComp = rxSignal[i] * Math.cos(theta);
+      const qComp = -rxSignal[i] * Math.sin(theta);
+      sumI += iComp;
+      sumQ += qComp;
+
+      const re2 = iComp * iComp - qComp * qComp;
+      const im2 = 2 * iComp * qComp;
+      sum2Re += re2;
+      sum2Im += im2;
+      sum4Re += re2 * re2 - im2 * im2;
+      sum4Im += 2 * re2 * im2;
+    }
+
+    let phaseError = Math.atan2(sumQ, sumI);
+    if (schemeId === "bpsk") {
+      phaseError = 0.5 * Math.atan2(sum2Im, sum2Re);
+    } else if (schemeId === "qpsk" || schemeId === "qam16") {
+      phaseError = 0.25 * Math.atan2(sum4Im, sum4Re);
+    }
+    receiverPhase += 0.85 * phaseError;
+
+    const filterWindow = Math.max(3, Math.floor(bitSamples / 5));
+    const { i, q } = coherentIQ(
+      rxSignal.slice(0, sampleLimit),
+      t.slice(0, sampleLimit),
+      receiverFc,
+      receiverPhase,
+      filterWindow,
+    );
+    const instPhase = unwrapPhase(i.map((ival, idx) => Math.atan2(q[idx], ival)));
+    if (instPhase.length > 10) {
+      const phaseSteps = [];
+      for (let idx = 1; idx < instPhase.length; idx += 1) {
+        const step = instPhase[idx] - instPhase[idx - 1];
+        if (Math.abs(step) < Math.PI / 2) {
+          phaseSteps.push(step);
+        }
+      }
+      if (phaseSteps.length > 4) {
+        const meanStep = phaseSteps.reduce((acc, step) => acc + step, 0) / phaseSteps.length;
+        const modulationOrder =
+          schemeId === "bpsk" ? 2 : (schemeId === "qpsk" || schemeId === "qam16" ? 4 : 1);
+        const freqErrorHz = (meanStep * SAMPLE_RATE) / (2 * Math.PI * modulationOrder);
+        receiverFc += clampValue(freqErrorHz, -80, 80);
+      }
+    }
+  }
+
+  if (params.timingRecovery) {
+    const symbolSamples = symbolSamplesForScheme(schemeId, bitSamples);
+    const evalLen = Math.min(rxSignal.length, symbolSamples * 128);
+    let bestOffset = 0;
+    let bestScore = -Infinity;
+    for (let offset = 0; offset < symbolSamples; offset += 1) {
+      let energy = 0;
+      let count = 0;
+      for (let idx = offset; idx < evalLen; idx += symbolSamples) {
+        energy += Math.abs(rxSignal[idx]);
+        count += 1;
+      }
+      const score = energy / Math.max(1, count);
+      if (score > bestScore) {
+        bestScore = score;
+        bestOffset = offset;
+      }
+    }
+    timingOffset = bestOffset;
+  }
+
+  return { receiverFc, receiverPhase, timingOffset };
+}
+
 export function generateAnalog(t, params, schemeId, baseband) {
   const mn = baseband.map((x) => x / Math.max(1e-9, Math.max(...baseband.map(Math.abs))));
   const txSignal = new Array(t.length).fill(0);
@@ -247,20 +350,22 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
     }
 
     const rxSignal = applyChannel(txSignal, t, params.channel);
+    const receiver = estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples);
     const comps = [];
 
     for (let b = 0; b < bitCount; b += 1) {
-      const start = b * bitSamples;
+      const start = receiver.timingOffset + b * bitSamples;
+      if (start >= t.length) break;
       const end = Math.min(start + bitSamples, t.length);
       const iComp =
         (2 / Math.max(1, end - start)) *
         integrateSegment(rxSignal, start, end, (i) =>
-          Math.cos(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+          Math.cos(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
         );
       const qComp =
         (-2 / Math.max(1, end - start)) *
         integrateSegment(rxSignal, start, end, (i) =>
-          Math.sin(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+          Math.sin(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
         );
       comps.push(iComp);
       constellation.push({ i: iComp, q: qComp });
@@ -270,8 +375,8 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
 
     const threshold = (Math.max(...comps) + Math.min(...comps)) / 2;
 
-    for (let b = 0; b < bitCount; b += 1) {
-      const start = b * bitSamples;
+    for (let b = 0; b < comps.length; b += 1) {
+      const start = receiver.timingOffset + b * bitSamples;
       const end = Math.min(start + bitSamples, t.length);
       const detected = comps[b] > threshold ? 1 : 0;
       rxBits.push(detected);
@@ -302,11 +407,13 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
     }
 
     const rxSignal = applyChannel(txSignal, t, params.channel);
-    const rf0 = params.receiverFc - params.freqDev / 2;
-    const rf1 = params.receiverFc + params.freqDev / 2;
+    const receiver = estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples);
+    const rf0 = receiver.receiverFc - params.freqDev / 2;
+    const rf1 = receiver.receiverFc + params.freqDev / 2;
 
     for (let b = 0; b < bitCount; b += 1) {
-      const start = b * bitSamples;
+      const start = receiver.timingOffset + b * bitSamples;
+      if (start >= t.length) break;
       const end = Math.min(start + bitSamples, t.length);
       const c0 = integrateSegment(rxSignal, start, end, (i) => Math.cos(2 * Math.PI * rf0 * t[i]));
       const c1 = integrateSegment(rxSignal, start, end, (i) => Math.cos(2 * Math.PI * rf1 * t[i]));
@@ -340,12 +447,14 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
     }
 
     const rxSignal = applyChannel(txSignal, t, params.channel);
+    const receiver = estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples);
 
     for (let b = 0; b < bitCount; b += 1) {
-      const start = b * bitSamples;
+      const start = receiver.timingOffset + b * bitSamples;
+      if (start >= t.length) break;
       const end = Math.min(start + bitSamples, t.length);
       const corr = integrateSegment(rxSignal, start, end, (i) =>
-        Math.cos(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+        Math.cos(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
       );
       const detected = corr >= 0 ? 1 : 0;
       txBits.push(sourceBits[b]);
@@ -395,20 +504,22 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
     }
 
     const rxSignal = applyChannel(txSignal, t, params.channel);
+    const receiver = estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples);
 
     for (let sym = 0; sym < symbolCount; sym += 1) {
-      const start = sym * symbolSamples;
+      const start = receiver.timingOffset + sym * symbolSamples;
+      if (start >= t.length) break;
       const end = Math.min(start + symbolSamples, t.length);
       const len = Math.max(1, end - start);
       const iComp =
         (2 / len) *
         integrateSegment(rxSignal, start, end, (i) =>
-          Math.cos(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+          Math.cos(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
         );
       const qComp =
         (-2 / len) *
         integrateSegment(rxSignal, start, end, (i) =>
-          Math.sin(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+          Math.sin(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
         );
       const [b1, b0] = decodeQpskQuadrant(iComp, qComp);
       rxBits.push(b1, b0);
@@ -416,6 +527,9 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
       constellation.push({ i: iComp, q: qComp });
       for (let i = start; i < end; i += 1) demodulated[i] = b1 ? 1 : -1;
     }
+
+    txBits.length = rxSymbols.length * 2;
+    txSymbols.length = rxSymbols.length;
 
     return {
       baseband,
@@ -459,23 +573,25 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
   }
 
   const rxSignal = applyChannel(txSignal, t, params.channel);
+  const receiver = estimateAdaptiveReceiverState(rxSignal, t, params, schemeId, bitSamples);
 
   for (let sym = 0; sym < symbolCount; sym += 1) {
-    const start = sym * symbolSamples;
+    const start = receiver.timingOffset + sym * symbolSamples;
+    if (start >= t.length) break;
     const end = Math.min(start + symbolSamples, t.length);
     const len = Math.max(1, end - start);
 
     const iComp =
       (2 / len) *
       integrateSegment(rxSignal, start, end, (i) =>
-        Math.cos(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+        Math.cos(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
       ) /
       Math.max(1e-9, params.carrierAmp);
 
     const qComp =
       (-2 / len) *
       integrateSegment(rxSignal, start, end, (i) =>
-        Math.sin(2 * Math.PI * params.receiverFc * t[i] + params.receiverPhase),
+        Math.sin(2 * Math.PI * receiver.receiverFc * t[i] + receiver.receiverPhase),
       ) /
       Math.max(1e-9, params.carrierAmp);
 
@@ -490,6 +606,9 @@ export function generateDigital(t, params, schemeId, bitPool, levelToBitsMap) {
 
     for (let i = start; i < end; i += 1) demodulated[i] = iHat > 0 ? 1 : -1;
   }
+
+  txBits.length = rxSymbols.length * 4;
+  txSymbols.length = rxSymbols.length;
 
   return {
     baseband,

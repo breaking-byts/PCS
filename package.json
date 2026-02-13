@@ -2,14 +2,21 @@
   "name": "modulation-studio",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "bun@1.3.4",
   "description": "Deployable static web app for modulation and demodulation visualization",
   "scripts": {
     "dev": "serve -l 4173",
     "start": "serve -l 4173",
-    "build": "echo 'Static site - no build required'"
+    "build": "echo 'Static site - no build required'",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:smoke": "vitest run tests/smoke",
+    "test:a11y": "vitest run tests/a11y"
   },
   "devDependencies": {
-    "serve": "^14.2.0"
+    "jsdom": "^28.0.0",
+    "serve": "^14.2.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "gsap": "^3.14.2",

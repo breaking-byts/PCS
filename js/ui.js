@@ -28,6 +28,8 @@ const els = {
   fadingDepth: document.getElementById("fadingDepth"),
   rxCarrierOffset: document.getElementById("rxCarrierOffset"),
   rxPhaseOffset: document.getElementById("rxPhaseOffset"),
+  receiverModel: document.getElementById("receiverModel"),
+  timingRecovery: document.getElementById("timingRecovery"),
   compareMode: document.getElementById("compareMode"),
   compareScheme: document.getElementById("compareScheme"),
   presetName: document.getElementById("presetName"),
@@ -243,6 +245,8 @@ export function currentControlState() {
     fadingDepth: Number(els.fadingDepth.value),
     rxCarrierOffset: Number(els.rxCarrierOffset.value),
     rxPhaseOffset: Number(els.rxPhaseOffset.value),
+    receiverModel: els.receiverModel.value,
+    timingRecovery: !!els.timingRecovery.checked,
     compareMode: !!els.compareMode.checked,
     compareScheme: els.compareScheme.value,
   };
@@ -273,6 +277,8 @@ export function applyControlState(state, skipRender = false, levelToBitsMap) {
   setControlValue("fadingDepth", merged.fadingDepth);
   setControlValue("rxCarrierOffset", merged.rxCarrierOffset);
   setControlValue("rxPhaseOffset", merged.rxPhaseOffset);
+  els.receiverModel.value = merged.receiverModel;
+  els.timingRecovery.checked = !!merged.timingRecovery;
   els.compareMode.checked = !!merged.compareMode;
 
   populateCompareSelector();
@@ -345,6 +351,8 @@ function getRenderParams() {
   const fadingDepth = clamp(Number(els.fadingDepth.value), 0, 0.95);
   const rxCarrierOffset = clamp(Number(els.rxCarrierOffset.value), -300, 300);
   const rxPhaseOffset = clamp(Number(els.rxPhaseOffset.value), -180, 180);
+  const receiverModel = els.receiverModel.value || "manual";
+  const timingRecovery = !!els.timingRecovery.checked;
 
   return {
     carrierFreq,
@@ -357,6 +365,8 @@ function getRenderParams() {
     duration,
     receiverFc: carrierFreq + rxCarrierOffset,
     receiverPhase: (rxPhaseOffset * Math.PI) / 180,
+    receiverModel,
+    timingRecovery,
     channel: {
       snrDb,
       fadingDepth,
@@ -611,6 +621,8 @@ export function bindEvents(levelToBitsMap) {
 
   els.scheme.addEventListener("change", () => render(levelToBitsMap));
   els.baseband.addEventListener("change", () => render(levelToBitsMap));
+  els.receiverModel.addEventListener("change", () => render(levelToBitsMap));
+  els.timingRecovery.addEventListener("change", () => render(levelToBitsMap));
   els.compareMode.addEventListener("change", () => render(levelToBitsMap));
   els.compareScheme.addEventListener("change", () => render(levelToBitsMap));
 

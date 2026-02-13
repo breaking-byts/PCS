@@ -22,6 +22,7 @@ A terminal-style web application for visualizing analog and digital signal modul
 - AWGN (adjustable SNR)
 - Fading depth
 - Receiver carrier/phase offset
+- Optional adaptive receiver mode (PLL + timing recovery)
 
 ### Visualizations
 - Baseband waveform
@@ -45,9 +46,19 @@ A terminal-style web application for visualizing analog and digital signal modul
 Open `index.html` directly in your browser, or run a local server:
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 # Open http://localhost:4173
+```
+
+## Testing
+
+```bash
+bun run test
+# or run suites individually:
+bun run test:unit
+bun run test:smoke
+bun run test:a11y
 ```
 
 ## Deployment

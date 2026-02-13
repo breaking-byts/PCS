@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "description": "Deployable static web app for modulation and demodulation visualization",
   "scripts": {
-    "dev": "bunx serve -p 4173",
-    "start": "bunx serve -p 4173",
+    "dev": "bunx serve -l 4173",
+    "start": "bunx serve -l 4173",
     "build": "echo 'Static site - no build required'"
   },
   "devDependencies": {

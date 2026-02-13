@@ -3,6 +3,8 @@
 A terminal-style web application for visualizing analog and digital signal modulation, channel impairments, and demodulation recovery.
 
 **Live Demo:** [https://breaking-byts.github.io/Modulation-Studio/](https://breaking-byts.github.io/Modulation-Studio/)
+<img width="1710" height="1112" alt="image" src="https://github.com/user-attachments/assets/c4023d38-b95d-401a-98df-1c06b4100522" />
+
 
 ## Features
 

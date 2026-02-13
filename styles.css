@@ -75,8 +75,11 @@
 
 .skip-link {
   position: absolute;
-  top: -100px;
-  left: 0;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
   background: var(--accent);
   color: var(--bg);
   padding: var(--sp-3) var(--sp-5);
@@ -86,13 +89,16 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   z-index: 1000;
-  transition: top 0.2s ease;
   text-decoration: none;
   border: 2px solid var(--accent);
 }
 
 .skip-link:focus {
+  left: 0;
   top: 0;
+  width: auto;
+  height: auto;
+  overflow: visible;
   outline: none;
 }
 

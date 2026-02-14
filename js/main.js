@@ -8,10 +8,12 @@ import {
   applyControlState,
   bindEvents,
   render,
+  ensureUiElements,
   initGsapAnimations,
 } from './ui.js';
 
 function init() {
+  ensureUiElements();
   buildSelectors();
   renderTaxonomy();
   renderAtlas();
@@ -23,4 +25,8 @@ function init() {
   initGsapAnimations();
 }
 
-init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}

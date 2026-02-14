@@ -7,69 +7,99 @@ import {
   allSchemes,
   SAMPLE_RATE,
 } from './config.js';
-import { renderLatex, clamp, formatHz, linspace, normalize, nowStamp } from './utils.js';
+import { renderLatexInto, clamp, formatHz, linspace, normalize, nowStamp } from './utils.js';
 import { generateAnalog, generateDigital, randomBits, computeBitErrorRate, computeSymbolErrorRate, computeCorrelation } from './signal.js';
 import { renderPlots } from './render.js';
 import { exportCurrentCsv, exportCurrentPng } from './ui-exports.js';
 import { initGsapAnimations } from './ui-animations.js';
 
-const els = {
-  family: document.getElementById("family"),
-  scheme: document.getElementById("scheme"),
-  baseband: document.getElementById("baseband"),
-  carrierFreq: document.getElementById("carrierFreq"),
-  messageFreq: document.getElementById("messageFreq"),
-  carrierAmp: document.getElementById("carrierAmp"),
-  messageAmp: document.getElementById("messageAmp"),
-  modIndex: document.getElementById("modIndex"),
-  freqDev: document.getElementById("freqDev"),
-  bitRate: document.getElementById("bitRate"),
-  duration: document.getElementById("duration"),
-  snrDb: document.getElementById("snrDb"),
-  fadingDepth: document.getElementById("fadingDepth"),
-  rxCarrierOffset: document.getElementById("rxCarrierOffset"),
-  rxPhaseOffset: document.getElementById("rxPhaseOffset"),
-  receiverModel: document.getElementById("receiverModel"),
-  timingRecovery: document.getElementById("timingRecovery"),
-  compareMode: document.getElementById("compareMode"),
-  compareScheme: document.getElementById("compareScheme"),
-  presetName: document.getElementById("presetName"),
-  savedPresetSelect: document.getElementById("savedPresetSelect"),
-  refresh: document.getElementById("refresh"),
-  resetDefaults: document.getElementById("resetDefaults"),
-  savePreset: document.getElementById("savePreset"),
-  loadPreset: document.getElementById("loadPreset"),
-  deletePreset: document.getElementById("deletePreset"),
-  exportCsv: document.getElementById("exportCsv"),
-  exportPng: document.getElementById("exportPng"),
-  starterPresetBtn: document.getElementById("starterPresetBtn"),
-  basebandEq: document.getElementById("basebandEq"),
-  modEq: document.getElementById("modEq"),
-  demodEq: document.getElementById("demodEq"),
-  compareModEq: document.getElementById("compareModEq"),
-  compareDemodEq: document.getElementById("compareDemodEq"),
-  primaryMetrics: document.getElementById("primaryMetrics"),
-  compareMetrics: document.getElementById("compareMetrics"),
-  taxonomy: document.getElementById("taxonomy"),
-  atlas: document.getElementById("atlas"),
-  plotLegend: document.getElementById("plotLegend"),
-  statusText: document.getElementById("statusText"),
-  bandwidthEstimate: document.getElementById("bandwidthEstimate"),
-  constellationPanel: document.getElementById("constellationPanel"),
-  basebandCanvas: document.getElementById("basebandCanvas"),
-  modulatedCanvas: document.getElementById("modulatedCanvas"),
-  demodulatedCanvas: document.getElementById("demodulatedCanvas"),
-  spectrumCanvas: document.getElementById("spectrumCanvas"),
-  constellationCanvas: document.getElementById("constellationCanvas"),
+const elementIdByKey = {
+  family: "family",
+  scheme: "scheme",
+  baseband: "baseband",
+  carrierFreq: "carrierFreq",
+  messageFreq: "messageFreq",
+  carrierAmp: "carrierAmp",
+  messageAmp: "messageAmp",
+  modIndex: "modIndex",
+  freqDev: "freqDev",
+  bitRate: "bitRate",
+  duration: "duration",
+  snrDb: "snrDb",
+  fadingDepth: "fadingDepth",
+  rxCarrierOffset: "rxCarrierOffset",
+  rxPhaseOffset: "rxPhaseOffset",
+  receiverModel: "receiverModel",
+  timingRecovery: "timingRecovery",
+  compareMode: "compareMode",
+  compareScheme: "compareScheme",
+  presetName: "presetName",
+  savedPresetSelect: "savedPresetSelect",
+  refresh: "refresh",
+  resetDefaults: "resetDefaults",
+  savePreset: "savePreset",
+  loadPreset: "loadPreset",
+  deletePreset: "deletePreset",
+  exportCsv: "exportCsv",
+  exportPng: "exportPng",
+  starterPresetBtn: "starterPresetBtn",
+  basebandEq: "basebandEq",
+  modEq: "modEq",
+  demodEq: "demodEq",
+  compareModEq: "compareModEq",
+  compareDemodEq: "compareDemodEq",
+  primaryMetrics: "primaryMetrics",
+  compareMetrics: "compareMetrics",
+  taxonomy: "taxonomy",
+  atlas: "atlas",
+  plotLegend: "plotLegend",
+  statusText: "statusText",
+  bandwidthEstimate: "bandwidthEstimate",
+  constellationPanel: "constellationPanel",
+  basebandCanvas: "basebandCanvas",
+  modulatedCanvas: "modulatedCanvas",
+  demodulatedCanvas: "demodulatedCanvas",
+  spectrumCanvas: "spectrumCanvas",
+  constellationCanvas: "constellationCanvas",
 };
 
-const scenarioButtons = Array.from(document.querySelectorAll(".scenario-btn"));
+const els = new Proxy({}, {
+  get(_target, prop) {
+    const key = typeof prop === 'string' ? prop : '';
+    const id = elementIdByKey[key];
+    return id ? document.getElementById(id) : undefined;
+  },
+});
+
+let eventsBound = false;
 
 let savedPresets = {};
 let lastRenderData = null;
 let renderFrameId = null;
 
+function storageErrorMessage(err) {
+  if (err?.name === 'QuotaExceededError' || err?.code === 22 || err?.code === 1014) {
+    return "Storage limit exceeded. Delete an old preset and try again.";
+  }
+  return "Unable to save preset data in local storage.";
+}
+
+function getScenarioButtons() {
+  return Array.from(document.querySelectorAll(".scenario-btn"));
+}
+
+export function ensureUiElements() {
+  const missing = Object.entries(elementIdByKey)
+    .filter(([, id]) => !document.getElementById(id))
+    .map(([key]) => key);
+
+  if (missing.length) {
+    throw new Error(`Missing required UI elements: ${missing.join(', ')}`);
+  }
+}
+
 export function setStatus(type, message) {
+  if (!els.statusText) return;
   els.statusText.className = `status ${type}`;
   els.statusText.textContent = message;
   if (typeof gsap !== "undefined") {
@@ -168,12 +198,12 @@ export function renderAtlas() {
 
       const modEq = document.createElement('span');
       modEq.className = 'eq';
-      modEq.innerHTML = renderLatex(scheme.modulationEq);
+      renderLatexInto(modEq, scheme.modulationEq);
       item.appendChild(modEq);
 
       const demodEq = document.createElement('span');
       demodEq.className = 'eq';
-      demodEq.innerHTML = renderLatex(scheme.demodEq);
+      renderLatexInto(demodEq, scheme.demodEq);
       item.appendChild(demodEq);
 
       list.appendChild(item);
@@ -230,7 +260,12 @@ export function loadPresetsFromStorage() {
 }
 
 export function persistPresets() {
-  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(savedPresets));
+  try {
+    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(savedPresets));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err };
+  }
 }
 
 export function refreshPresetDropdown() {
@@ -335,8 +370,18 @@ export function applyScenario(name, levelToBitsMap) {
 function saveCurrentPreset() {
   const explicit = els.presetName.value.trim();
   const name = explicit || `preset-${nowStamp()}`;
+  const previous = savedPresets[name];
   savedPresets[name] = currentControlState();
-  persistPresets();
+  const persistResult = persistPresets();
+  if (!persistResult.ok) {
+    if (previous === undefined) {
+      delete savedPresets[name];
+    } else {
+      savedPresets[name] = previous;
+    }
+    setStatus("error", storageErrorMessage(persistResult.error));
+    return;
+  }
   refreshPresetDropdown();
   els.savedPresetSelect.value = name;
   els.presetName.value = name;
@@ -360,8 +405,14 @@ function deleteSelectedPreset() {
     setStatus("error", "No preset selected for deletion.");
     return;
   }
+  const previous = savedPresets[name];
   delete savedPresets[name];
-  persistPresets();
+  const persistResult = persistPresets();
+  if (!persistResult.ok) {
+    savedPresets[name] = previous;
+    setStatus("error", storageErrorMessage(persistResult.error));
+    return;
+  }
   refreshPresetDropdown();
   els.presetName.value = "";
   setStatus("success", `Preset deleted: ${name}`);
@@ -481,13 +532,20 @@ function performRender(levelToBitsMap) {
     const compare = compareScheme ? runScheme(compareScheme, t, params, basebandDef, sharedBits, levelToBitsMap) : null;
 
     const digitalBasebandEq = "m(t) = \\sum_k b(k) p(t-kT_b), \\quad b(k) \\in \\{0,1\\}";
-    els.basebandEq.innerHTML = primaryScheme.digital
-      ? renderLatex(digitalBasebandEq)
-      : renderLatex(basebandDef.equation);
-    els.modEq.innerHTML = renderLatex(primaryScheme.modulationEq);
-    els.demodEq.innerHTML = renderLatex(primaryScheme.demodEq);
-    els.compareModEq.innerHTML = compareScheme ? renderLatex(compareScheme.modulationEq) : "N/A";
-    els.compareDemodEq.innerHTML = compareScheme ? renderLatex(compareScheme.demodEq) : "N/A";
+    if (primaryScheme.digital) {
+      renderLatexInto(els.basebandEq, digitalBasebandEq);
+    } else {
+      renderLatexInto(els.basebandEq, basebandDef.equation);
+    }
+    renderLatexInto(els.modEq, primaryScheme.modulationEq);
+    renderLatexInto(els.demodEq, primaryScheme.demodEq);
+    if (compareScheme) {
+      renderLatexInto(els.compareModEq, compareScheme.modulationEq);
+      renderLatexInto(els.compareDemodEq, compareScheme.demodEq);
+    } else {
+      els.compareModEq.textContent = "N/A";
+      els.compareDemodEq.textContent = "N/A";
+    }
 
     els.primaryMetrics.textContent = formatMetricText(primary, primaryScheme);
     els.compareMetrics.textContent = compareScheme
@@ -535,6 +593,9 @@ function performRender(levelToBitsMap) {
 }
 
 export function bindEvents(levelToBitsMap) {
+  if (eventsBound) return;
+  eventsBound = true;
+
   els.family.addEventListener("change", () => {
     populateSchemeSelector();
     render(levelToBitsMap);
@@ -600,7 +661,7 @@ export function bindEvents(levelToBitsMap) {
     applyScenario("offsetQpsk", levelToBitsMap);
   });
 
-  scenarioButtons.forEach((button) => {
+  getScenarioButtons().forEach((button) => {
     button.addEventListener("click", () => {
       applyScenario(button.dataset.scenario, levelToBitsMap);
     });

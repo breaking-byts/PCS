@@ -8,6 +8,21 @@ export function renderLatex(latex) {
   }
 }
 
+export function renderLatexInto(element, latex) {
+  if (!element) return;
+
+  if (typeof katex === "undefined") {
+    element.textContent = latex;
+    return;
+  }
+
+  try {
+    katex.render(latex, element, { throwOnError: false, displayMode: false, trust: false });
+  } catch (_e) {
+    element.textContent = latex;
+  }
+}
+
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -40,7 +55,11 @@ export function linspace(duration, sampleRate) {
 
 export function normalize(signal) {
   if (!signal.length) return [];
-  const maxAbs = Math.max(...signal.map((x) => Math.abs(x)), 1e-9);
+  let maxAbs = 0;
+  for (let i = 0; i < signal.length; i += 1) {
+    maxAbs = Math.max(maxAbs, Math.abs(signal[i]));
+  }
+  if (maxAbs < 1e-9) return new Array(signal.length).fill(0);
   return signal.map((x) => x / maxAbs);
 }
 
@@ -96,7 +115,10 @@ function bitReverse(index, bits) {
 
 function fftInPlace(real, imag) {
   const n = real.length;
-  const bits = Math.log2(n);
+  if (n < 2 || (n & (n - 1)) !== 0) {
+    throw new Error("fftInPlace requires a power-of-2 sample length.");
+  }
+  const bits = Math.round(Math.log2(n));
 
   for (let i = 0; i < n; i += 1) {
     const j = bitReverse(i, bits);

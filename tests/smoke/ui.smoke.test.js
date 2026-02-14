@@ -65,7 +65,7 @@ function setupDom() {
     downloads.push({ download: this.download, href: this.href });
   };
 
-  return { createObjectURL, revokeObjectURL, downloads };
+  return { createObjectURL, revokeObjectURL, downloads, raf };
 }
 
 async function loadUiModule() {
@@ -79,13 +79,14 @@ beforeEach(() => {
 
 describe("UI smoke tests", () => {
   it("initializes controls and supports save/load preset flow", async () => {
-    setupDom();
+    const { raf } = setupDom();
     const ui = await loadUiModule();
 
     ui.buildSelectors();
     ui.renderTaxonomy();
     ui.renderAtlas();
     ui.applyControlState(defaultControls, true, levelToBitsMap);
+    ui.bindEvents(levelToBitsMap);
     ui.bindEvents(levelToBitsMap);
     ui.render(levelToBitsMap);
 
@@ -102,6 +103,10 @@ describe("UI smoke tests", () => {
     compareMode.dispatchEvent(new window.Event("change", { bubbles: true }));
     expect(compareScheme.disabled).toBe(false);
 
+    raf.mockClear();
+    scheme.dispatchEvent(new window.Event("change", { bubbles: true }));
+    expect(raf).toHaveBeenCalledTimes(1);
+
     const presetName = document.getElementById("presetName");
     presetName.value = "smoke-preset";
     document.getElementById("savePreset").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
@@ -109,6 +114,14 @@ describe("UI smoke tests", () => {
 
     document.getElementById("loadPreset").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("statusText").textContent).toContain("Preset loaded");
+
+    const storageSetItem = vi.spyOn(window.Storage.prototype, "setItem").mockImplementation(() => {
+      throw new window.DOMException("Quota exceeded", "QuotaExceededError");
+    });
+    presetName.value = "quota-preset";
+    document.getElementById("savePreset").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("statusText").textContent).toContain("Storage limit exceeded");
+    storageSetItem.mockRestore();
   });
 
   it("exports CSV and PNG from rendered simulation state", async () => {

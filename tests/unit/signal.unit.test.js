@@ -6,6 +6,7 @@ import {
   computeCorrelation,
   generateAnalog,
   generateDigital,
+  integrateSegment,
 } from "../../js/signal.js";
 
 function deterministicBits(count) {
@@ -136,5 +137,30 @@ describe("signal simulation correctness", () => {
   it("strips inline style attributes from rendered latex", () => {
     const rendered = renderLatex("s(t) = A_c [1 + \\mu \\cdot m_n(t)] \\cos(2\\pi f_c t)");
     expect(rendered.includes("style=")).toBe(false);
+  });
+
+  it("handles empty ASK sample windows without crashing", () => {
+    const params = makeParams({ bitRate: 300 });
+    const result = generateDigital([], params, "ask", deterministicBits(64), levelToBitsMap);
+    expect(result.txSignal).toEqual([]);
+    expect(result.rxSignal).toEqual([]);
+    expect(result.rxBits).toEqual([]);
+  });
+
+  it("rejects unknown modulation scheme IDs explicitly", () => {
+    const params = makeParams();
+    const t = linspace(params.duration, SAMPLE_RATE);
+    const baseband = t.map(() => 0);
+
+    expect(() => generateDigital(t, params, "oops", deterministicBits(64), levelToBitsMap)).toThrow(
+      /Unsupported digital scheme/,
+    );
+    expect(() => generateAnalog(t, params, "oops", baseband)).toThrow(/Unsupported analog scheme/);
+  });
+
+  it("clamps integration windows to valid bounds", () => {
+    const signal = [1, 2, 3, 4];
+    const sum = integrateSegment(signal, -3, 99, () => 1);
+    expect(sum).toBe(10);
   });
 });

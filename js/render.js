@@ -4,7 +4,7 @@ import { colors, SAMPLE_RATE } from './config.js';
 export function drawLinePlot(canvas, series) {
   const ctx = canvas.getContext("2d");
   const { width, height } = canvas;
-  const valid = series.filter((entry) => entry.data.length > 1);
+  const valid = series.filter((entry) => entry.data && entry.data.length > 1);
   ctx.clearRect(0, 0, width, height);
   const pad = 22;
 
@@ -19,22 +19,33 @@ export function drawLinePlot(canvas, series) {
 
   if (!valid.length) return;
 
-  const values = valid.flatMap((entry) => entry.data);
+  const values = valid
+    .flatMap((entry) => entry.data)
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return;
+
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = Math.max(1e-6, max - min);
 
   valid.forEach((entry) => {
+    if (!entry.data || entry.data.length < 2) return;
     ctx.strokeStyle = entry.color;
     ctx.lineWidth = 1.45;
     ctx.beginPath();
+    let hasMoved = false;
     entry.data.forEach((y, idx) => {
+      if (!Number.isFinite(y)) return;
       const xPix = pad + (idx / (entry.data.length - 1)) * (width - 2 * pad);
       const yPix = height - pad - ((y - min) / span) * (height - 2 * pad);
-      if (idx === 0) ctx.moveTo(xPix, yPix);
-      else ctx.lineTo(xPix, yPix);
+      if (!hasMoved) {
+        ctx.moveTo(xPix, yPix);
+        hasMoved = true;
+      } else {
+        ctx.lineTo(xPix, yPix);
+      }
     });
-    ctx.stroke();
+    if (hasMoved) ctx.stroke();
   });
 }
 
@@ -53,27 +64,44 @@ export function drawXYPlot(canvas, xList, yList, colorsList) {
   ctx.lineTo(pad, height - pad);
   ctx.stroke();
 
-  if (!xList.length) return;
+  if (!xList || !yList || !xList.length || !yList.length) return;
+  if (xList.length !== yList.length) return;
 
-  const xMin = Math.min(...xList.map((x) => x[0]));
-  const xMax = Math.max(...xList.map((x) => x[x.length - 1]));
-  const yMin = Math.min(...yList.flatMap((y) => y));
-  const yMax = Math.max(...yList.flatMap((y) => y));
+  const validPairs = xList
+    .map((x, i) => ({ x, y: yList[i], color: colorsList[i] }))
+    .filter((pair) => pair.x && pair.y && pair.x.length > 0 && pair.y.length > 0);
+
+  if (!validPairs.length) return;
+
+  const xMin = Math.min(...validPairs.flatMap((p) => p.x).filter(Number.isFinite));
+  const xMax = Math.max(...validPairs.flatMap((p) => p.x).filter(Number.isFinite));
+  const yMin = Math.min(...validPairs.flatMap((p) => p.y).filter(Number.isFinite));
+  const yMax = Math.max(...validPairs.flatMap((p) => p.y).filter(Number.isFinite));
+
+  if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || !Number.isFinite(yMin) || !Number.isFinite(yMax)) return;
+
   const xSpan = Math.max(1e-9, xMax - xMin);
   const ySpan = Math.max(1e-9, yMax - yMin);
 
-  xList.forEach((xVals, p) => {
-    const yVals = yList[p];
-    ctx.strokeStyle = colorsList[p];
+  validPairs.forEach((pair) => {
+    const { x: xVals, y: yVals, color } = pair;
+    if (xVals.length !== yVals.length) return;
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1.35;
     ctx.beginPath();
+    let hasMoved = false;
     xVals.forEach((xVal, idx) => {
+      if (!Number.isFinite(xVal) || !Number.isFinite(yVals[idx])) return;
       const px = pad + ((xVal - xMin) / xSpan) * (width - 2 * pad);
       const py = height - pad - ((yVals[idx] - yMin) / ySpan) * (height - 2 * pad);
-      if (idx === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+      if (!hasMoved) {
+        ctx.moveTo(px, py);
+        hasMoved = true;
+      } else {
+        ctx.lineTo(px, py);
+      }
     });
-    ctx.stroke();
+    if (hasMoved) ctx.stroke();
   });
 }
 

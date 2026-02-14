@@ -5,12 +5,13 @@ export function initGsapAnimations() {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const sections = document.querySelectorAll('[data-section]');
-  if (prefersReducedMotion) {
+
+  if (prefersReducedMotion || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
     sections.forEach((section) => {
       section.style.opacity = '1';
       section.style.transform = 'none';
     });
-  } else if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+  } else {
     gsap.registerPlugin(ScrollTrigger);
 
     gsap.to(sections, {

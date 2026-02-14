@@ -140,4 +140,21 @@ describe("UI smoke tests", () => {
     expect(downloads.some((item) => item.download.endsWith(".csv"))).toBe(true);
     expect(downloads.some((item) => item.download.endsWith(".png"))).toBe(true);
   });
+
+  it("sections are visible by default without JS animation (progressive enhancement)", async () => {
+    const dom = new JSDOM(INDEX_HTML, { url: "http://localhost", pretendToBeVisual: true });
+    const { window } = dom;
+    const { document } = window;
+
+    const sections = document.querySelectorAll("[data-section]");
+    expect(sections.length).toBeGreaterThan(0);
+
+    const computedStyle = (el) => window.getComputedStyle(el);
+    sections.forEach((section) => {
+      const opacity = computedStyle(section).opacity;
+      const transform = computedStyle(section).transform;
+      expect(opacity === "1" || opacity === "").toBe(true);
+      expect(transform === "none" || transform === "").toBe(true);
+    });
+  });
 });

@@ -7,14 +7,16 @@
   "scripts": {
     "dev": "serve -l 4173",
     "start": "serve -l 4173",
-    "build": "echo 'Static site - no build required'",
+    "build": "rm -rf dist && mkdir -p dist && cp index.html styles.css dist/ && cp -R js vendor dist/",
     "lint": "node --check js/*.js tests/unit/*.js tests/smoke/*.js tests/a11y/*.js",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:smoke": "vitest run tests/smoke",
-    "test:a11y": "vitest run tests/a11y"
+    "test:a11y": "vitest run tests/a11y",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
     "jsdom": "^28.0.0",
     "serve": "^14.2.0",
     "vitest": "^4.0.18"

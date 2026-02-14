@@ -15,3 +15,12 @@ export {
 
 export { generateAnalog } from './signal-analog.js';
 export { generateDigital } from './signal-digital.js';
+
+export {
+  setRngSeed,
+  getRngSeed,
+  isDeterministic,
+  random,
+  randomBits as seededRandomBits,
+  gaussianRandom,
+} from './rng.js';

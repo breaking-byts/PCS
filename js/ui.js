@@ -8,7 +8,7 @@ import {
   SAMPLE_RATE,
 } from './config.js';
 import { renderLatexInto, clamp, formatHz, linspace, normalize, nowStamp } from './utils.js';
-import { generateAnalog, generateDigital, randomBits, computeBitErrorRate, computeSymbolErrorRate, computeCorrelation } from './signal.js';
+import { generateAnalog, generateDigital, randomBits, computeBitErrorRate, computeSymbolErrorRate, computeCorrelation, setRngSeed, getRngSeed, isDeterministic } from './signal.js';
 import { renderPlots } from './render.js';
 import { exportCurrentCsv, exportCurrentPng } from './ui-exports.js';
 import { initGsapAnimations } from './ui-animations.js';
@@ -33,6 +33,8 @@ const elementIdByKey = {
   timingRecovery: "timingRecovery",
   compareMode: "compareMode",
   compareScheme: "compareScheme",
+  deterministicMode: "deterministicMode",
+  rngSeed: "rngSeed",
   presetName: "presetName",
   savedPresetSelect: "savedPresetSelect",
   refresh: "refresh",
@@ -313,6 +315,8 @@ export function currentControlState() {
     timingRecovery: !!els.timingRecovery.checked,
     compareMode: !!els.compareMode.checked,
     compareScheme: els.compareScheme.value,
+    deterministicMode: !!els.deterministicMode.checked,
+    rngSeed: Number(els.rngSeed.value),
   };
 }
 
@@ -344,6 +348,8 @@ export function applyControlState(state, skipRender = false, levelToBitsMap) {
   els.receiverModel.value = merged.receiverModel;
   els.timingRecovery.checked = !!merged.timingRecovery;
   els.compareMode.checked = !!merged.compareMode;
+  els.deterministicMode.checked = !!merged.deterministicMode;
+  setControlValue("rngSeed", merged.rngSeed ?? 12345);
 
   populateCompareSelector();
   if (merged.compareScheme) {
@@ -517,6 +523,13 @@ function performRender(levelToBitsMap) {
     const primaryScheme = getSchemeById(els.scheme.value);
     if (!primaryScheme) return;
 
+    if (els.deterministicMode.checked) {
+      const seed = Math.floor(clamp(Number(els.rngSeed.value), 0, 4294967295));
+      setRngSeed(seed);
+    } else {
+      setRngSeed(null);
+    }
+
     const params = getRenderParams();
     const t = linspace(params.duration, SAMPLE_RATE);
     const basebandDef = basebandSignals.find((b) => b.id === els.baseband.value) || basebandSignals[0];
@@ -547,7 +560,11 @@ function performRender(levelToBitsMap) {
       els.compareDemodEq.textContent = "N/A";
     }
 
-    els.primaryMetrics.textContent = formatMetricText(primary, primaryScheme);
+    let metricsText = formatMetricText(primary, primaryScheme);
+    if (isDeterministic()) {
+      metricsText += ` | Seed: ${getRngSeed()}`;
+    }
+    els.primaryMetrics.textContent = metricsText;
     els.compareMetrics.textContent = compareScheme
       ? formatMetricText(compare, compareScheme)
       : "Comparison disabled";
@@ -584,6 +601,7 @@ function performRender(levelToBitsMap) {
       primaryScheme,
       compareScheme,
       params,
+      seed: getRngSeed(),
     };
 
     setStatus("success", "Simulation updated.");
@@ -607,6 +625,12 @@ export function bindEvents(levelToBitsMap) {
   els.timingRecovery.addEventListener("change", () => render(levelToBitsMap));
   els.compareMode.addEventListener("change", () => render(levelToBitsMap));
   els.compareScheme.addEventListener("change", () => render(levelToBitsMap));
+  els.deterministicMode.addEventListener("change", () => render(levelToBitsMap));
+  els.rngSeed.addEventListener("input", () => {
+    if (els.deterministicMode.checked) {
+      render(levelToBitsMap);
+    }
+  });
 
   let debounceTimer = null;
   const debouncedRender = () => {

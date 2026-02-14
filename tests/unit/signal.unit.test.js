@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { SAMPLE_RATE, levelToBitsMap } from "../../js/config.js";
 import { computeSpectrum, linspace, normalize, renderLatex } from "../../js/utils.js";
 import {
@@ -8,6 +8,35 @@ import {
   generateDigital,
   integrateSegment,
 } from "../../js/signal.js";
+import { setRngSeed, getRngSeed, isDeterministic, random, randomBits } from "../../js/rng.js";
+import { drawLinePlot, drawXYPlot, drawConstellation } from "../../js/render.js";
+
+function makeCanvasContextStub() {
+  return {
+    clearRect: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    fillText: vi.fn(),
+    drawImage: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    set strokeStyle(_v) {},
+    set fillStyle(_v) {},
+    set lineWidth(_v) {},
+    set font(_v) {},
+  };
+}
+
+function makeCanvas(width = 720, height = 240) {
+  const ctx = makeCanvasContextStub();
+  const canvas = { width, height, getContext: vi.fn(() => ctx) };
+  canvas._ctx = ctx;
+  return canvas;
+}
 
 function deterministicBits(count) {
   const bits = new Array(count);
@@ -162,5 +191,132 @@ describe("signal simulation correctness", () => {
     const signal = [1, 2, 3, 4];
     const sum = integrateSegment(signal, -3, 99, () => 1);
     expect(sum).toBe(10);
+  });
+});
+
+describe("render plot input guards", () => {
+  it("drawLinePlot handles empty series gracefully", () => {
+    const canvas = makeCanvas();
+    drawLinePlot(canvas, []);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+    expect(canvas._ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("drawLinePlot handles series with empty data arrays", () => {
+    const canvas = makeCanvas();
+    drawLinePlot(canvas, [
+      { data: [], color: "#00ff9c" },
+      { data: [1], color: "#ff9c00" },
+    ]);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+  });
+
+  it("drawLinePlot handles series with NaN values", () => {
+    const canvas = makeCanvas();
+    drawLinePlot(canvas, [
+      { data: [1, NaN, 3, 4, 5], color: "#00ff9c" },
+    ]);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+    expect(canvas._ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("drawXYPlot handles empty input arrays", () => {
+    const canvas = makeCanvas();
+    drawXYPlot(canvas, [], [], []);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+  });
+
+  it("drawXYPlot handles mismatched array lengths", () => {
+    const canvas = makeCanvas();
+    drawXYPlot(canvas, [[1, 2, 3]], [[1, 2]], ["#00ff9c"]);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+  });
+
+  it("drawXYPlot handles arrays with NaN values", () => {
+    const canvas = makeCanvas();
+    drawXYPlot(
+      canvas,
+      [[1, 2, NaN, 4]],
+      [[10, 20, 30, 40]],
+      ["#00ff9c"]
+    );
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+  });
+
+  it("drawConstellation handles empty groups", () => {
+    const canvas = makeCanvas();
+    drawConstellation(canvas, []);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+    expect(canvas._ctx.fillText).toHaveBeenCalled();
+  });
+
+  it("drawConstellation handles groups with empty points", () => {
+    const canvas = makeCanvas();
+    drawConstellation(canvas, [
+      { color: "#00ff9c", points: [] },
+    ]);
+    expect(canvas._ctx.clearRect).toHaveBeenCalled();
+  });
+});
+
+describe("seeded RNG deterministic mode", () => {
+  beforeEach(() => {
+    setRngSeed(null);
+  });
+
+  it("produces identical random sequences with the same seed", () => {
+    setRngSeed(42);
+    const bits1 = randomBits(100);
+
+    setRngSeed(42);
+    const bits2 = randomBits(100);
+
+    expect(bits1).toEqual(bits2);
+  });
+
+  it("produces different sequences with different seeds", () => {
+    setRngSeed(42);
+    const bits1 = randomBits(100);
+
+    setRngSeed(123);
+    const bits2 = randomBits(100);
+
+    expect(bits1).not.toEqual(bits2);
+  });
+
+  it("reports deterministic state correctly", () => {
+    expect(isDeterministic()).toBe(false);
+
+    setRngSeed(42);
+    expect(isDeterministic()).toBe(true);
+
+    setRngSeed(null);
+    expect(isDeterministic()).toBe(false);
+  });
+
+  it("returns the current seed value", () => {
+    setRngSeed(999);
+    expect(getRngSeed()).toBe(999);
+
+    setRngSeed(null);
+    expect(getRngSeed()).toBe(null);
+  });
+
+  it("produces reproducible BER results with seeded digital modulation", () => {
+    const params = makeParams({ carrierFreq: 280, bitRate: 220, duration: 0.12, snrDb: 50 });
+    const t = linspace(params.duration, SAMPLE_RATE);
+    const bitPool = deterministicBits(40000);
+
+    setRngSeed(777);
+    const result1 = generateDigital(t, params, "bpsk", bitPool, levelToBitsMap);
+    const ber1 = computeBitErrorRate(result1.txBits, result1.rxBits);
+
+    setRngSeed(777);
+    const result2 = generateDigital(t, params, "bpsk", bitPool, levelToBitsMap);
+    const ber2 = computeBitErrorRate(result2.txBits, result2.rxBits);
+
+    expect(ber1.rate).toBe(ber2.rate);
+    expect(ber1.errors).toBe(ber2.errors);
+    expect(ber1.total).toBe(ber2.total);
   });
 });

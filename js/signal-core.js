@@ -1,14 +1,6 @@
 import { SAMPLE_RATE } from './config.js';
 import { coherentIQ, unwrapPhase } from './utils.js';
-
-function gaussianRandom() {
-  let u = 0;
-  let v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
-
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
+import { random, gaussianRandom } from './rng.js';
 
 export function signalPower(signal) {
   if (!signal.length) return 0;
@@ -42,7 +34,7 @@ export function applyChannel(signal, t, channel) {
 }
 
 export function randomBits(count) {
-  return Array.from({ length: count }, () => (Math.random() > 0.5 ? 1 : 0));
+  return Array.from({ length: count }, () => (random() > 0.5 ? 1 : 0));
 }
 
 export function bitsToWaveform(bits, bitSamples) {

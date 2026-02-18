@@ -61,6 +61,23 @@ bun run test:smoke
 bun run test:a11y
 ```
 
+## Runtime Production Controls
+
+The app supports optional runtime configuration through a global object:
+
+```js
+window.__MOD_STUDIO_CONFIG__ = {
+  observabilityEndpoint: "https://example.com/observability",
+  analyticsEndpoint: "https://example.com/analytics",
+  analyticsEnabled: true,
+};
+```
+
+- `observabilityEndpoint` is optional; when omitted, errors/events stay local in structured console logs.
+- `analyticsEnabled` defaults to `false`.
+- `analyticsEndpoint` is optional and only used when `analyticsEnabled: true`.
+- Analytics respects privacy signals (`Do Not Track` and `Global Privacy Control`) and will suppress tracking when enabled.
+
 ## Deployment
 
 Ready for static hosting:
@@ -73,6 +90,15 @@ Ready for static hosting:
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
+## Security Headers
+
+`netlify.toml` and `vercel.json` are aligned and include:
+- strict CSP with `img-src 'self'` and `upgrade-insecure-requests`
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- restrictive `Permissions-Policy`
+- asset caching policy (`max-age=600`, `stale-while-revalidate=86400`)
+
 ## Project Structure
 
 ```
@@ -80,8 +106,12 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 ├── js/
 │   ├── main.js        # App bootstrap and initialization
 │   ├── ui.js          # UI orchestration, state, and event binding
+│   ├── ui-presets.js  # Preset persistence and validation logic
+│   ├── ui-render-controller.js # Render orchestration and simulation pipeline
 │   ├── ui-exports.js  # CSV/PNG export services
 │   ├── ui-animations.js # GSAP animation bootstrap
+│   ├── analytics.js   # Privacy-aware functional analytics hooks
+│   ├── observability.js # Runtime error/event telemetry utilities
 │   ├── signal.js      # Public signal API surface
 │   ├── signal-core.js # Channel model, receiver sync, error metrics
 │   ├── signal-analog.js # Analog modulation/demodulation implementations

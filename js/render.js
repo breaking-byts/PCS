@@ -1,10 +1,34 @@
 import { computeSpectrum, normalize } from './utils.js';
 import { colors, SAMPLE_RATE } from './config.js';
 
+function getCanvasContext(canvas) {
+  if (!canvas || typeof canvas.getContext !== 'function') return null;
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const width = canvas.width || 0;
+    const height = canvas.height || 0;
+    if (width <= 0 || height <= 0) return null;
+    return ctx;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function safeCanvasDimensions(canvas) {
+  if (!canvas) return { width: 0, height: 0 };
+  const width = Math.max(1, Math.floor(canvas.width) || 1);
+  const height = Math.max(1, Math.floor(canvas.height) || 1);
+  return { width, height };
+}
+
 export function drawLinePlot(canvas, series) {
-  const ctx = canvas.getContext("2d");
-  const { width, height } = canvas;
-  const valid = series.filter((entry) => entry.data && entry.data.length > 1);
+  const ctx = getCanvasContext(canvas);
+  if (!ctx || !canvas) return;
+  const { width, height } = safeCanvasDimensions(canvas);
+  const valid = Array.isArray(series)
+    ? series.filter((entry) => entry && entry.data && entry.data.length > 1)
+    : [];
   ctx.clearRect(0, 0, width, height);
   const pad = 22;
 
@@ -50,8 +74,9 @@ export function drawLinePlot(canvas, series) {
 }
 
 export function drawXYPlot(canvas, xList, yList, colorsList) {
-  const ctx = canvas.getContext("2d");
-  const { width, height } = canvas;
+  const ctx = getCanvasContext(canvas);
+  if (!ctx || !canvas) return;
+  const { width, height } = safeCanvasDimensions(canvas);
   ctx.clearRect(0, 0, width, height);
   const pad = 22;
 
@@ -106,8 +131,9 @@ export function drawXYPlot(canvas, xList, yList, colorsList) {
 }
 
 export function drawConstellation(canvas, groups) {
-  const ctx = canvas.getContext("2d");
-  const { width, height } = canvas;
+  const ctx = getCanvasContext(canvas);
+  if (!ctx || !canvas) return;
+  const { width, height } = safeCanvasDimensions(canvas);
   const pad = 24;
   ctx.clearRect(0, 0, width, height);
 
@@ -120,7 +146,8 @@ export function drawConstellation(canvas, groups) {
   ctx.lineTo(width - pad, height / 2);
   ctx.stroke();
 
-  const flat = groups.flatMap((g) => g.points);
+  const normalizedGroups = Array.isArray(groups) ? groups : [];
+  const flat = normalizedGroups.flatMap((g) => g.points || []);
   if (!flat.length) {
     ctx.fillStyle = "#7aa57a";
     ctx.font = "13px JetBrains Mono, monospace";
@@ -130,9 +157,9 @@ export function drawConstellation(canvas, groups) {
 
   const maxAbs = Math.max(1, ...flat.map((p) => Math.max(Math.abs(p.i), Math.abs(p.q))));
 
-  groups.forEach((group) => {
+  normalizedGroups.forEach((group) => {
     ctx.fillStyle = group.color;
-    group.points.forEach((p) => {
+    (group.points || []).forEach((p) => {
       const x = width / 2 + (p.i / maxAbs) * (width / 2 - pad - 8);
       const y = height / 2 - (p.q / maxAbs) * (height / 2 - pad - 8);
       ctx.beginPath();
@@ -143,47 +170,60 @@ export function drawConstellation(canvas, groups) {
 }
 
 export function renderPlots(cvs, data, primaryScheme, compareScheme) {
-  drawLinePlot(cvs.basebandCanvas, [
-    { data: normalize(data.primary.baseband), color: colors.primaryBase },
+  if (!cvs || !data || !data.primary) return false;
+
+  const basebandCanvas = cvs.basebandCanvas;
+  const modulatedCanvas = cvs.modulatedCanvas;
+  const demodulatedCanvas = cvs.demodulatedCanvas;
+  const spectrumCanvas = cvs.spectrumCanvas;
+  const constellationCanvas = cvs.constellationCanvas;
+
+  if (!basebandCanvas || !modulatedCanvas || !demodulatedCanvas || !spectrumCanvas || !constellationCanvas) {
+    return false;
+  }
+
+  drawLinePlot(basebandCanvas, [
+    { data: normalize(data.primary.baseband || []), color: colors.primaryBase },
     ...(data.compare
-      ? [{ data: normalize(data.compare.baseband), color: colors.compareBase }]
+      ? [{ data: normalize(data.compare.baseband || []), color: colors.compareBase }]
       : []),
   ]);
 
-  drawLinePlot(cvs.modulatedCanvas, [
-    { data: normalize(data.primary.rxSignal), color: colors.primaryRx },
+  drawLinePlot(modulatedCanvas, [
+    { data: normalize(data.primary.rxSignal || []), color: colors.primaryRx },
     ...(data.compare
-      ? [{ data: normalize(data.compare.rxSignal), color: colors.compareRx }]
+      ? [{ data: normalize(data.compare.rxSignal || []), color: colors.compareRx }]
       : []),
   ]);
 
-  drawLinePlot(cvs.demodulatedCanvas, [
-    { data: normalize(data.primary.demodulated), color: colors.primaryDemod },
+  drawLinePlot(demodulatedCanvas, [
+    { data: normalize(data.primary.demodulated || []), color: colors.primaryDemod },
     ...(data.compare
-      ? [{ data: normalize(data.compare.demodulated), color: colors.compareDemod }]
+      ? [{ data: normalize(data.compare.demodulated || []), color: colors.compareDemod }]
       : []),
   ]);
 
-  const primarySpectrum = computeSpectrum(data.primary.rxSignal, SAMPLE_RATE);
+  const primaryRx = data.primary.rxSignal || [];
+  const primarySpectrum = primaryRx.length > 1 ? computeSpectrum(primaryRx, SAMPLE_RATE) : { freq: [], magDb: [] };
   const xList = [primarySpectrum.freq];
   const yList = [primarySpectrum.magDb];
   const cList = [colors.spectrumPrimary];
-  if (data.compare) {
+  if (data.compare && data.compare.rxSignal && data.compare.rxSignal.length > 1) {
     const compareSpectrum = computeSpectrum(data.compare.rxSignal, SAMPLE_RATE);
     xList.push(compareSpectrum.freq);
     yList.push(compareSpectrum.magDb);
     cList.push(colors.spectrumCompare);
   }
-  drawXYPlot(cvs.spectrumCanvas, xList, yList, cList);
+  drawXYPlot(spectrumCanvas, xList, yList, cList);
 
   const constellationGroups = [];
-  if (primaryScheme.digital) {
-    constellationGroups.push({ color: colors.constellationPrimary, points: data.primary.constellation });
+  if (primaryScheme && primaryScheme.digital) {
+    constellationGroups.push({ color: colors.constellationPrimary, points: data.primary.constellation || [] });
   }
-  if (compareScheme?.digital) {
-    constellationGroups.push({ color: colors.constellationCompare, points: data.compare.constellation });
+  if (compareScheme && compareScheme.digital && data.compare) {
+    constellationGroups.push({ color: colors.constellationCompare, points: data.compare.constellation || [] });
   }
-  drawConstellation(cvs.constellationCanvas, constellationGroups);
+  drawConstellation(constellationCanvas, constellationGroups);
 
   return constellationGroups.length > 0;
 }

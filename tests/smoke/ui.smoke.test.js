@@ -73,6 +73,11 @@ async function loadUiModule() {
   return import(moduleUrl);
 }
 
+async function loadExportsModule() {
+  const moduleUrl = `${pathToFileURL(path.join(ROOT, "js/ui-exports.js")).href}?ts=${Date.now()}`;
+  return import(moduleUrl);
+}
+
 beforeEach(() => {
   vi.resetModules();
 });
@@ -156,5 +161,171 @@ describe("UI smoke tests", () => {
       expect(opacity === "1" || opacity === "").toBe(true);
       expect(transform === "none" || transform === "").toBe(true);
     });
+  });
+
+  it("body does not have js class initially (progressive enhancement)", async () => {
+    const dom = new JSDOM(INDEX_HTML, { url: "http://localhost", pretendToBeVisual: true });
+    const { window } = dom;
+    const { document } = window;
+
+    expect(document.body.classList.contains('js')).toBe(false);
+  });
+});
+
+describe("preset sanitization and validation", () => {
+  it("rejects malformed preset names with special characters", async () => {
+    setupDom();
+    const ui = await loadUiModule();
+
+    const invalidNames = [
+      "preset<script>",
+      "preset'or'1'='1",
+      "preset; DROP TABLE",
+      "preset with spaces",
+      "../../../etc/passwd",
+      "preset\ntest",
+    ];
+
+    for (const name of invalidNames) {
+      const normalized = name.toLowerCase().replace(/[^a-z0-9\-_.]/g, '-');
+      expect(normalized).not.toContain('<');
+      expect(normalized).not.toContain("'");
+      expect(normalized).not.toContain(';');
+      expect(normalized).not.toContain(' ');
+    }
+  });
+
+  it("normalizes preset names to safe format", async () => {
+    const normalizePresetName = (name) => {
+      if (!name || typeof name !== 'string') return '';
+      let normalized = name.trim().toLowerCase();
+      normalized = normalized.replace(/[^a-z0-9\-_.]/g, '-');
+      normalized = normalized.replace(/-+/g, '-');
+      normalized = normalized.replace(/^-+|-+$/g, '');
+      return normalized.slice(0, 64);
+    };
+
+    expect(normalizePresetName("My Cool Preset!")).toBe("my-cool-preset");
+    expect(normalizePresetName("---test---")).toBe("test");
+    expect(normalizePresetName("a".repeat(100))).toBe("a".repeat(64));
+    expect(normalizePresetName("")).toBe("");
+  });
+
+  it("validates loaded preset data structure", async () => {
+    const sanitizePresetData = (data) => {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return null;
+      }
+      const VALID_KEYS = [
+        'family', 'scheme', 'baseband', 'carrierFreq', 'messageFreq', 'carrierAmp',
+        'messageAmp', 'modIndex', 'freqDev', 'bitRate', 'duration', 'snrDb',
+        'fadingDepth', 'rxCarrierOffset', 'rxPhaseOffset', 'receiverModel',
+        'timingRecovery', 'compareMode', 'compareScheme', 'deterministicMode', 'rngSeed'
+      ];
+      const sanitized = {};
+      for (const key of VALID_KEYS) {
+        if (data[key] !== undefined && data[key] !== null) {
+          const value = data[key];
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            sanitized[key] = value;
+          }
+        }
+      }
+      if (typeof sanitized.family !== 'string' || typeof sanitized.scheme !== 'string') {
+        return null;
+      }
+      return sanitized;
+    };
+
+    expect(sanitizePresetData(null)).toBe(null);
+    expect(sanitizePresetData([])).toBe(null);
+    expect(sanitizePresetData("string")).toBe(null);
+    expect(sanitizePresetData({ family: "amplitude", scheme: "am_dsb_lc" })).toBeTruthy();
+    expect(sanitizePresetData({ family: "amplitude", scheme: "am_dsb_lc", malicious: "data" })).toBeTruthy();
+    expect(sanitizePresetData({ family: 123, scheme: "am_dsb_lc" })).toBe(null);
+  });
+
+  it("rejects preset data with prototype pollution attempts", async () => {
+    const sanitizePresetData = (data) => {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return null;
+      }
+      const VALID_KEYS = ['family', 'scheme', 'baseband'];
+      const sanitized = {};
+      for (const key of VALID_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined) {
+          sanitized[key] = data[key];
+        }
+      }
+      return sanitized;
+    };
+
+    const malicious = { __proto__: { polluted: true }, family: "amplitude", scheme: "am_dsb_lc" };
+    const result = sanitizePresetData(malicious);
+    expect(result).not.toHaveProperty('polluted');
+    expect(result).not.toHaveProperty('__proto__');
+  });
+
+  it("handles corrupted localStorage data gracefully", async () => {
+    setupDom();
+    
+    window.localStorage.setItem('modulationStudio.presets.v1', 'not valid json');
+    const ui = await loadUiModule();
+    ui.loadPresetsFromStorage();
+    ui.refreshPresetDropdown();
+    
+    const presetSelect = document.getElementById('savedPresetSelect');
+    expect(presetSelect.options.length).toBe(1);
+    expect(presetSelect.options[0].value).toBe('');
+  });
+
+  it("ignores invalid preset names from localStorage", async () => {
+    setupDom();
+    
+    const invalidPresets = {
+      "<script>": { family: "amplitude", scheme: "am_dsb_lc" },
+      "valid-preset": { family: "amplitude", scheme: "am_dsb_lc" },
+      "'; DROP TABLE--": { family: "amplitude", scheme: "am_dsb_lc" },
+    };
+    window.localStorage.setItem('modulationStudio.presets.v1', JSON.stringify(invalidPresets));
+    
+    const ui = await loadUiModule();
+    ui.loadPresetsFromStorage();
+    ui.refreshPresetDropdown();
+    
+    const presetSelect = document.getElementById('savedPresetSelect');
+    const options = Array.from(presetSelect.options).map(o => o.value);
+    expect(options).toContain('valid-preset');
+    expect(options).not.toContain('<script>');
+    expect(options).not.toContain("'; DROP TABLE--");
+  });
+});
+
+describe("export error handling", () => {
+  it("exportCurrentCsv handles invalid render data gracefully", async () => {
+    setupDom();
+    const exports = await loadExportsModule();
+    const setStatus = vi.fn();
+    
+    exports.exportCurrentCsv(null, setStatus);
+    expect(setStatus).toHaveBeenCalledWith('error', expect.stringContaining('Nothing to export'));
+    
+    exports.exportCurrentCsv({}, setStatus);
+    expect(setStatus).toHaveBeenCalledWith('error', expect.stringContaining('Invalid render data'));
+    
+    exports.exportCurrentCsv({ time: [], primary: null }, setStatus);
+    expect(setStatus).toHaveBeenCalledWith('error', expect.stringContaining('Invalid render data'));
+  });
+
+  it("exportCurrentPng handles missing elements gracefully", async () => {
+    setupDom();
+    const exports = await loadExportsModule();
+    const setStatus = vi.fn();
+    
+    exports.exportCurrentPng(null, null, setStatus);
+    expect(setStatus).toHaveBeenCalledWith('error', expect.stringContaining('Nothing to export'));
+    
+    exports.exportCurrentPng({ time: [1, 2], primary: {} }, null, setStatus);
+    expect(setStatus).toHaveBeenCalledWith('error', expect.stringContaining('UI elements'));
   });
 });

@@ -1,68 +1,74 @@
 import {
-  PRESET_STORAGE_KEY,
   modulationFamilies,
   basebandSignals,
   defaultControls,
   scenarioPresets,
   allSchemes,
-  SAMPLE_RATE,
 } from './config.js';
-import { renderLatexInto, clamp, formatHz, linspace, normalize, nowStamp } from './utils.js';
-import { generateAnalog, generateDigital, randomBits, computeBitErrorRate, computeSymbolErrorRate, computeCorrelation, setRngSeed, getRngSeed, isDeterministic } from './signal.js';
-import { renderPlots } from './render.js';
+import { renderLatexInto } from './utils.js';
 import { exportCurrentCsv, exportCurrentPng } from './ui-exports.js';
 import { initGsapAnimations } from './ui-animations.js';
+import { trackFunctionalEvent } from './analytics.js';
+import {
+  loadPresetsFromStorage as loadPresetsFromStorageStore,
+  persistPresets as persistPresetsStore,
+  refreshPresetDropdown as refreshPresetDropdownStore,
+  saveCurrentPreset as saveCurrentPresetStore,
+  loadSelectedPreset as loadSelectedPresetStore,
+  deleteSelectedPreset as deleteSelectedPresetStore,
+} from './ui-presets.js';
+import { createRenderController } from './ui-render-controller.js';
 
 const elementIdByKey = {
-  family: "family",
-  scheme: "scheme",
-  baseband: "baseband",
-  carrierFreq: "carrierFreq",
-  messageFreq: "messageFreq",
-  carrierAmp: "carrierAmp",
-  messageAmp: "messageAmp",
-  modIndex: "modIndex",
-  freqDev: "freqDev",
-  bitRate: "bitRate",
-  duration: "duration",
-  snrDb: "snrDb",
-  fadingDepth: "fadingDepth",
-  rxCarrierOffset: "rxCarrierOffset",
-  rxPhaseOffset: "rxPhaseOffset",
-  receiverModel: "receiverModel",
-  timingRecovery: "timingRecovery",
-  compareMode: "compareMode",
-  compareScheme: "compareScheme",
-  deterministicMode: "deterministicMode",
-  rngSeed: "rngSeed",
-  presetName: "presetName",
-  savedPresetSelect: "savedPresetSelect",
-  refresh: "refresh",
-  resetDefaults: "resetDefaults",
-  savePreset: "savePreset",
-  loadPreset: "loadPreset",
-  deletePreset: "deletePreset",
-  exportCsv: "exportCsv",
-  exportPng: "exportPng",
-  starterPresetBtn: "starterPresetBtn",
-  basebandEq: "basebandEq",
-  modEq: "modEq",
-  demodEq: "demodEq",
-  compareModEq: "compareModEq",
-  compareDemodEq: "compareDemodEq",
-  primaryMetrics: "primaryMetrics",
-  compareMetrics: "compareMetrics",
-  taxonomy: "taxonomy",
-  atlas: "atlas",
-  plotLegend: "plotLegend",
-  statusText: "statusText",
-  bandwidthEstimate: "bandwidthEstimate",
-  constellationPanel: "constellationPanel",
-  basebandCanvas: "basebandCanvas",
-  modulatedCanvas: "modulatedCanvas",
-  demodulatedCanvas: "demodulatedCanvas",
-  spectrumCanvas: "spectrumCanvas",
-  constellationCanvas: "constellationCanvas",
+  family: 'family',
+  scheme: 'scheme',
+  baseband: 'baseband',
+  carrierFreq: 'carrierFreq',
+  messageFreq: 'messageFreq',
+  carrierAmp: 'carrierAmp',
+  messageAmp: 'messageAmp',
+  modIndex: 'modIndex',
+  freqDev: 'freqDev',
+  bitRate: 'bitRate',
+  duration: 'duration',
+  snrDb: 'snrDb',
+  fadingDepth: 'fadingDepth',
+  rxCarrierOffset: 'rxCarrierOffset',
+  rxPhaseOffset: 'rxPhaseOffset',
+  receiverModel: 'receiverModel',
+  timingRecovery: 'timingRecovery',
+  compareMode: 'compareMode',
+  compareScheme: 'compareScheme',
+  deterministicMode: 'deterministicMode',
+  rngSeed: 'rngSeed',
+  presetName: 'presetName',
+  savedPresetSelect: 'savedPresetSelect',
+  refresh: 'refresh',
+  resetDefaults: 'resetDefaults',
+  savePreset: 'savePreset',
+  loadPreset: 'loadPreset',
+  deletePreset: 'deletePreset',
+  exportCsv: 'exportCsv',
+  exportPng: 'exportPng',
+  starterPresetBtn: 'starterPresetBtn',
+  basebandEq: 'basebandEq',
+  modEq: 'modEq',
+  demodEq: 'demodEq',
+  compareModEq: 'compareModEq',
+  compareDemodEq: 'compareDemodEq',
+  primaryMetrics: 'primaryMetrics',
+  compareMetrics: 'compareMetrics',
+  taxonomy: 'taxonomy',
+  atlas: 'atlas',
+  plotLegend: 'plotLegend',
+  statusText: 'statusText',
+  bandwidthEstimate: 'bandwidthEstimate',
+  constellationPanel: 'constellationPanel',
+  basebandCanvas: 'basebandCanvas',
+  modulatedCanvas: 'modulatedCanvas',
+  demodulatedCanvas: 'demodulatedCanvas',
+  spectrumCanvas: 'spectrumCanvas',
+  constellationCanvas: 'constellationCanvas',
 };
 
 const els = new Proxy({}, {
@@ -74,20 +80,21 @@ const els = new Proxy({}, {
 });
 
 let eventsBound = false;
-
-let savedPresets = {};
-let lastRenderData = null;
-let renderFrameId = null;
-
-function storageErrorMessage(err) {
-  if (err?.name === 'QuotaExceededError' || err?.code === 22 || err?.code === 1014) {
-    return "Storage limit exceeded. Delete an old preset and try again.";
-  }
-  return "Unable to save preset data in local storage.";
-}
+let renderController = null;
 
 function getScenarioButtons() {
-  return Array.from(document.querySelectorAll(".scenario-btn"));
+  return Array.from(document.querySelectorAll('.scenario-btn'));
+}
+
+function ensureRenderController() {
+  if (!renderController) {
+    renderController = createRenderController({
+      els,
+      setStatus,
+      renderLegend,
+    });
+  }
+  return renderController;
 }
 
 export function ensureUiElements() {
@@ -104,26 +111,33 @@ export function setStatus(type, message) {
   if (!els.statusText) return;
   els.statusText.className = `status ${type}`;
   els.statusText.textContent = message;
-  if (typeof gsap !== "undefined") {
-    gsap.fromTo(els.statusText,
-      { boxShadow: "0 0 0 0 rgba(0,255,156,0.22)" },
-      { boxShadow: "0 0 14px 2px rgba(0,255,156,0.22)", duration: 0.3, yoyo: true, repeat: 1, ease: "power2.out" }
+  if (typeof gsap !== 'undefined') {
+    gsap.fromTo(
+      els.statusText,
+      { boxShadow: '0 0 0 0 rgba(0,255,156,0.22)' },
+      {
+        boxShadow: '0 0 14px 2px rgba(0,255,156,0.22)',
+        duration: 0.3,
+        yoyo: true,
+        repeat: 1,
+        ease: 'power2.out',
+      },
     );
   }
 }
 
 export function buildSelectors() {
-  els.family.innerHTML = "";
+  els.family.innerHTML = '';
   modulationFamilies.forEach((family) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = family.id;
     option.textContent = family.name;
     els.family.appendChild(option);
   });
 
-  els.baseband.innerHTML = "";
+  els.baseband.innerHTML = '';
   basebandSignals.forEach((baseband) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = baseband.id;
     option.textContent = baseband.label;
     els.baseband.appendChild(option);
@@ -136,9 +150,9 @@ export function populateSchemeSelector(selectedSchemeId) {
   const family = modulationFamilies.find((item) => item.id === els.family.value);
   if (!family) return;
 
-  els.scheme.innerHTML = "";
+  els.scheme.innerHTML = '';
   family.schemes.forEach((scheme) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = scheme.id;
     option.textContent = scheme.label;
     els.scheme.appendChild(option);
@@ -150,10 +164,10 @@ export function populateSchemeSelector(selectedSchemeId) {
 
 export function populateCompareSelector() {
   const previous = els.compareScheme.value;
-  els.compareScheme.innerHTML = "";
+  els.compareScheme.innerHTML = '';
 
   allSchemes.forEach((scheme) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = scheme.id;
     option.textContent = `${scheme.familyName} - ${scheme.label}`;
     els.compareScheme.appendChild(option);
@@ -253,40 +267,15 @@ export function renderLegend(compareActive, primaryScheme, compareScheme) {
 }
 
 export function loadPresetsFromStorage() {
-  try {
-    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
-    savedPresets = raw ? JSON.parse(raw) : {};
-  } catch (_err) {
-    savedPresets = {};
-  }
+  loadPresetsFromStorageStore();
 }
 
 export function persistPresets() {
-  try {
-    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(savedPresets));
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err };
-  }
+  return persistPresetsStore();
 }
 
 export function refreshPresetDropdown() {
-  const names = Object.keys(savedPresets).sort();
-  els.savedPresetSelect.innerHTML = "";
-  if (!names.length) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No presets saved";
-    els.savedPresetSelect.appendChild(option);
-    return;
-  }
-
-  names.forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    els.savedPresetSelect.appendChild(option);
-  });
+  refreshPresetDropdownStore(els);
 }
 
 function schemeToFamily(schemeId) {
@@ -333,23 +322,23 @@ export function applyControlState(state, skipRender = false, levelToBitsMap) {
   populateSchemeSelector(merged.scheme);
 
   els.baseband.value = merged.baseband;
-  setControlValue("carrierFreq", merged.carrierFreq);
-  setControlValue("messageFreq", merged.messageFreq);
-  setControlValue("carrierAmp", merged.carrierAmp);
-  setControlValue("messageAmp", merged.messageAmp);
-  setControlValue("modIndex", merged.modIndex);
-  setControlValue("freqDev", merged.freqDev);
-  setControlValue("bitRate", merged.bitRate);
-  setControlValue("duration", merged.duration);
-  setControlValue("snrDb", merged.snrDb);
-  setControlValue("fadingDepth", merged.fadingDepth);
-  setControlValue("rxCarrierOffset", merged.rxCarrierOffset);
-  setControlValue("rxPhaseOffset", merged.rxPhaseOffset);
+  setControlValue('carrierFreq', merged.carrierFreq);
+  setControlValue('messageFreq', merged.messageFreq);
+  setControlValue('carrierAmp', merged.carrierAmp);
+  setControlValue('messageAmp', merged.messageAmp);
+  setControlValue('modIndex', merged.modIndex);
+  setControlValue('freqDev', merged.freqDev);
+  setControlValue('bitRate', merged.bitRate);
+  setControlValue('duration', merged.duration);
+  setControlValue('snrDb', merged.snrDb);
+  setControlValue('fadingDepth', merged.fadingDepth);
+  setControlValue('rxCarrierOffset', merged.rxCarrierOffset);
+  setControlValue('rxPhaseOffset', merged.rxPhaseOffset);
   els.receiverModel.value = merged.receiverModel;
   els.timingRecovery.checked = !!merged.timingRecovery;
   els.compareMode.checked = !!merged.compareMode;
   els.deterministicMode.checked = !!merged.deterministicMode;
-  setControlValue("rngSeed", merged.rngSeed ?? 12345);
+  setControlValue('rngSeed', merged.rngSeed ?? 12345);
 
   populateCompareSelector();
   if (merged.compareScheme) {
@@ -366,267 +355,52 @@ export function applyControlState(state, skipRender = false, levelToBitsMap) {
 export function applyScenario(name, levelToBitsMap) {
   const scenario = scenarioPresets[name];
   if (!scenario) {
-    setStatus("error", `Scenario ${name} not found.`);
+    setStatus('error', `Scenario ${name} not found.`);
     return;
   }
   applyControlState(scenario, false, levelToBitsMap);
-  setStatus("success", `Scenario applied: ${name}`);
+  setStatus('success', `Scenario applied: ${name}`);
+  trackFunctionalEvent('scenario_applied', { scenario: name });
 }
 
 function saveCurrentPreset() {
-  const explicit = els.presetName.value.trim();
-  const name = explicit || `preset-${nowStamp()}`;
-  const previous = savedPresets[name];
-  savedPresets[name] = currentControlState();
-  const persistResult = persistPresets();
-  if (!persistResult.ok) {
-    if (previous === undefined) {
-      delete savedPresets[name];
-    } else {
-      savedPresets[name] = previous;
-    }
-    setStatus("error", storageErrorMessage(persistResult.error));
-    return;
-  }
-  refreshPresetDropdown();
-  els.savedPresetSelect.value = name;
-  els.presetName.value = name;
-  setStatus("success", `Preset saved: ${name}`);
+  saveCurrentPresetStore(
+    els,
+    currentControlState,
+    setStatus,
+    (presetName) => trackFunctionalEvent('preset_saved', { presetName }),
+  );
 }
 
 function loadSelectedPreset(levelToBitsMap) {
-  const name = els.savedPresetSelect.value;
-  if (!name || !savedPresets[name]) {
-    setStatus("error", "Select a saved preset first.");
-    return;
-  }
-  applyControlState(savedPresets[name], false, levelToBitsMap);
-  els.presetName.value = name;
-  setStatus("success", `Preset loaded: ${name}`);
+  loadSelectedPresetStore(els, applyControlState, setStatus, levelToBitsMap);
 }
 
 function deleteSelectedPreset() {
-  const name = els.savedPresetSelect.value;
-  if (!name || !savedPresets[name]) {
-    setStatus("error", "No preset selected for deletion.");
-    return;
-  }
-  const previous = savedPresets[name];
-  delete savedPresets[name];
-  const persistResult = persistPresets();
-  if (!persistResult.ok) {
-    savedPresets[name] = previous;
-    setStatus("error", storageErrorMessage(persistResult.error));
-    return;
-  }
-  refreshPresetDropdown();
-  els.presetName.value = "";
-  setStatus("success", `Preset deleted: ${name}`);
-}
-
-function getRenderParams() {
-  const carrierFreq = clamp(Number(els.carrierFreq.value), 20, 2200);
-  const messageFreq = clamp(Number(els.messageFreq.value), 1, 500);
-  const carrierAmp = clamp(Number(els.carrierAmp.value), 0.2, 5);
-  const messageAmp = clamp(Number(els.messageAmp.value), 0.1, 5);
-  const modIndex = clamp(Number(els.modIndex.value), 0.1, 5);
-  const freqDev = clamp(Number(els.freqDev.value), 1, 600);
-  const bitRate = clamp(Number(els.bitRate.value), 10, 2000);
-  const duration = clamp(Number(els.duration.value), 0.02, 0.4);
-  const snrDb = clamp(Number(els.snrDb.value), 0, 60);
-  const fadingDepth = clamp(Number(els.fadingDepth.value), 0, 0.95);
-  const rxCarrierOffset = clamp(Number(els.rxCarrierOffset.value), -300, 300);
-  const rxPhaseOffset = clamp(Number(els.rxPhaseOffset.value), -180, 180);
-  const receiverModel = els.receiverModel.value || "manual";
-  const timingRecovery = !!els.timingRecovery.checked;
-
-  return {
-    carrierFreq,
-    messageFreq,
-    carrierAmp,
-    messageAmp,
-    modIndex,
-    freqDev,
-    bitRate,
-    duration,
-    receiverFc: carrierFreq + rxCarrierOffset,
-    receiverPhase: (rxPhaseOffset * Math.PI) / 180,
-    receiverModel,
-    timingRecovery,
-    channel: {
-      snrDb,
-      fadingDepth,
-    },
-  };
-}
-
-function getSchemeById(id) {
-  return allSchemes.find((scheme) => scheme.id === id);
-}
-
-function runScheme(scheme, t, params, basebandDef, sharedBits, levelToBitsMap) {
-  if (scheme.digital) {
-    return generateDigital(t, params, scheme.id, sharedBits, levelToBitsMap);
-  }
-  const baseband = t.map((time) => basebandDef.generator(time, params.messageAmp, params.messageFreq));
-  return generateAnalog(t, params, scheme.id, baseband);
-}
-
-function estimateBandwidthHz(schemeId, params) {
-  if (schemeId === "am_dsb_lc" || schemeId === "am_dsb_sc") {
-    return 2 * params.messageFreq;
-  }
-  if (schemeId === "fm") {
-    return 2 * (params.freqDev + params.messageFreq);
-  }
-  if (schemeId === "pm") {
-    return 2 * (params.messageFreq * (1 + params.modIndex));
-  }
-  if (schemeId === "ask" || schemeId === "bpsk") {
-    return 2 * params.bitRate;
-  }
-  if (schemeId === "fsk") {
-    return 2 * (params.freqDev + params.bitRate);
-  }
-  if (schemeId === "qpsk") {
-    return Math.max(1, params.bitRate);
-  }
-  if (schemeId === "qam16") {
-    return Math.max(1, params.bitRate / 2);
-  }
-  return params.messageFreq;
-}
-
-function formatMetricText(result, scheme) {
-  if (scheme.digital) {
-    const ber = computeBitErrorRate(result.txBits, result.rxBits);
-    const ser = computeSymbolErrorRate(result.txSymbols, result.rxSymbols);
-    return `BER ${ber.rate.toFixed(4)} (${ber.errors}/${ber.total}), SER ${ser.rate.toFixed(4)} (${ser.errors}/${ser.total})`;
-  }
-
-  const corr = computeCorrelation(normalize(result.baseband), normalize(result.demodulated));
-  return `Correlation(baseband, demod): ${corr.toFixed(4)}`;
+  deleteSelectedPresetStore(els, setStatus);
 }
 
 export function render(levelToBitsMap) {
-  if (renderFrameId !== null) {
-    cancelAnimationFrame(renderFrameId);
-  }
-  renderFrameId = requestAnimationFrame(() => {
-    renderFrameId = null;
-    performRender(levelToBitsMap);
-  });
-}
-
-function performRender(levelToBitsMap) {
-  try {
-    const primaryScheme = getSchemeById(els.scheme.value);
-    if (!primaryScheme) return;
-
-    if (els.deterministicMode.checked) {
-      const seed = Math.floor(clamp(Number(els.rngSeed.value), 0, 4294967295));
-      setRngSeed(seed);
-    } else {
-      setRngSeed(null);
-    }
-
-    const params = getRenderParams();
-    const t = linspace(params.duration, SAMPLE_RATE);
-    const basebandDef = basebandSignals.find((b) => b.id === els.baseband.value) || basebandSignals[0];
-
-    const compareActive = els.compareMode.checked;
-    els.compareScheme.disabled = !compareActive;
-    const compareScheme = compareActive ? getSchemeById(els.compareScheme.value) : null;
-
-    const needSharedBits = primaryScheme.digital || compareScheme?.digital;
-    const sharedBits = needSharedBits ? randomBits(10000) : null;
-
-    const primary = runScheme(primaryScheme, t, params, basebandDef, sharedBits, levelToBitsMap);
-    const compare = compareScheme ? runScheme(compareScheme, t, params, basebandDef, sharedBits, levelToBitsMap) : null;
-
-    const digitalBasebandEq = "m(t) = \\sum_k b(k) p(t-kT_b), \\quad b(k) \\in \\{0,1\\}";
-    if (primaryScheme.digital) {
-      renderLatexInto(els.basebandEq, digitalBasebandEq);
-    } else {
-      renderLatexInto(els.basebandEq, basebandDef.equation);
-    }
-    renderLatexInto(els.modEq, primaryScheme.modulationEq);
-    renderLatexInto(els.demodEq, primaryScheme.demodEq);
-    if (compareScheme) {
-      renderLatexInto(els.compareModEq, compareScheme.modulationEq);
-      renderLatexInto(els.compareDemodEq, compareScheme.demodEq);
-    } else {
-      els.compareModEq.textContent = "N/A";
-      els.compareDemodEq.textContent = "N/A";
-    }
-
-    let metricsText = formatMetricText(primary, primaryScheme);
-    if (isDeterministic()) {
-      metricsText += ` | Seed: ${getRngSeed()}`;
-    }
-    els.primaryMetrics.textContent = metricsText;
-    els.compareMetrics.textContent = compareScheme
-      ? formatMetricText(compare, compareScheme)
-      : "Comparison disabled";
-
-    const bwPrimary = estimateBandwidthHz(primaryScheme.id, params);
-    let bwText = `Estimated Occupied BW: Primary ${formatHz(bwPrimary)}`;
-    if (compareScheme) {
-      const bwCompare = estimateBandwidthHz(compareScheme.id, params);
-      bwText += ` | Compare ${formatHz(bwCompare)}`;
-    }
-    els.bandwidthEstimate.textContent = bwText;
-
-    renderLegend(compareActive, primaryScheme, compareScheme);
-
-    const hasConstellation = renderPlots(
-      {
-        basebandCanvas: els.basebandCanvas,
-        modulatedCanvas: els.modulatedCanvas,
-        demodulatedCanvas: els.demodulatedCanvas,
-        spectrumCanvas: els.spectrumCanvas,
-        constellationCanvas: els.constellationCanvas,
-      },
-      { primary, compare },
-      primaryScheme,
-      compareScheme,
-    );
-
-    els.constellationPanel.style.display = hasConstellation ? "block" : "none";
-
-    lastRenderData = {
-      time: t,
-      primary,
-      compare,
-      primaryScheme,
-      compareScheme,
-      params,
-      seed: getRngSeed(),
-    };
-
-    setStatus("success", "Simulation updated.");
-  } catch (err) {
-    setStatus("error", `Render failed: ${err.message}`);
-  }
+  ensureRenderController().render(levelToBitsMap);
 }
 
 export function bindEvents(levelToBitsMap) {
   if (eventsBound) return;
   eventsBound = true;
 
-  els.family.addEventListener("change", () => {
+  els.family.addEventListener('change', () => {
     populateSchemeSelector();
     render(levelToBitsMap);
   });
 
-  els.scheme.addEventListener("change", () => render(levelToBitsMap));
-  els.baseband.addEventListener("change", () => render(levelToBitsMap));
-  els.receiverModel.addEventListener("change", () => render(levelToBitsMap));
-  els.timingRecovery.addEventListener("change", () => render(levelToBitsMap));
-  els.compareMode.addEventListener("change", () => render(levelToBitsMap));
-  els.compareScheme.addEventListener("change", () => render(levelToBitsMap));
-  els.deterministicMode.addEventListener("change", () => render(levelToBitsMap));
-  els.rngSeed.addEventListener("input", () => {
+  els.scheme.addEventListener('change', () => render(levelToBitsMap));
+  els.baseband.addEventListener('change', () => render(levelToBitsMap));
+  els.receiverModel.addEventListener('change', () => render(levelToBitsMap));
+  els.timingRecovery.addEventListener('change', () => render(levelToBitsMap));
+  els.compareMode.addEventListener('change', () => render(levelToBitsMap));
+  els.compareScheme.addEventListener('change', () => render(levelToBitsMap));
+  els.deterministicMode.addEventListener('change', () => render(levelToBitsMap));
+  els.rngSeed.addEventListener('input', () => {
     if (els.deterministicMode.checked) {
       render(levelToBitsMap);
     }
@@ -639,54 +413,61 @@ export function bindEvents(levelToBitsMap) {
   };
 
   [
-    "carrierFreq",
-    "messageFreq",
-    "carrierAmp",
-    "messageAmp",
-    "modIndex",
-    "freqDev",
-    "bitRate",
-    "duration",
-    "snrDb",
-    "fadingDepth",
-    "rxCarrierOffset",
-    "rxPhaseOffset",
+    'carrierFreq',
+    'messageFreq',
+    'carrierAmp',
+    'messageAmp',
+    'modIndex',
+    'freqDev',
+    'bitRate',
+    'duration',
+    'snrDb',
+    'fadingDepth',
+    'rxCarrierOffset',
+    'rxPhaseOffset',
   ].forEach((id) => {
-    els[id].addEventListener("input", debouncedRender);
+    els[id].addEventListener('input', debouncedRender);
   });
 
-  els.refresh.addEventListener("click", () => render(levelToBitsMap));
+  els.refresh.addEventListener('click', () => render(levelToBitsMap));
 
-  els.resetDefaults.addEventListener("click", () => {
+  els.resetDefaults.addEventListener('click', () => {
     applyControlState(defaultControls, false, levelToBitsMap);
-    setStatus("success", "Reset to defaults.");
+    setStatus('success', 'Reset to defaults.');
   });
 
-  els.savePreset.addEventListener("click", saveCurrentPreset);
-  els.loadPreset.addEventListener("click", () => loadSelectedPreset(levelToBitsMap));
-  els.deletePreset.addEventListener("click", deleteSelectedPreset);
+  els.savePreset.addEventListener('click', saveCurrentPreset);
+  els.loadPreset.addEventListener('click', () => loadSelectedPreset(levelToBitsMap));
+  els.deletePreset.addEventListener('click', deleteSelectedPreset);
 
-  els.savedPresetSelect.addEventListener("change", () => {
+  els.savedPresetSelect.addEventListener('change', () => {
     const name = els.savedPresetSelect.value;
     els.presetName.value = name;
   });
 
-  els.presetName.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
+  els.presetName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
       event.preventDefault();
       saveCurrentPreset();
     }
   });
 
-  els.exportCsv.addEventListener('click', () => exportCurrentCsv(lastRenderData, setStatus));
-  els.exportPng.addEventListener('click', () => exportCurrentPng(lastRenderData, els, setStatus));
+  els.exportCsv.addEventListener('click', () => {
+    const renderData = ensureRenderController().getLastRenderData();
+    exportCurrentCsv(renderData, setStatus);
+  });
 
-  els.starterPresetBtn.addEventListener("click", () => {
-    applyScenario("offsetQpsk", levelToBitsMap);
+  els.exportPng.addEventListener('click', () => {
+    const renderData = ensureRenderController().getLastRenderData();
+    exportCurrentPng(renderData, els, setStatus);
+  });
+
+  els.starterPresetBtn.addEventListener('click', () => {
+    applyScenario('offsetQpsk', levelToBitsMap);
   });
 
   getScenarioButtons().forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       applyScenario(button.dataset.scenario, levelToBitsMap);
     });
   });

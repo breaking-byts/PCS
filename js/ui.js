@@ -389,6 +389,8 @@ function setControlValue(id, value) {
   if (value === undefined || value === null) return;
   if (!els[id]) return;
   els[id].value = String(value);
+  const valSpan = document.getElementById(`${id}Val`);
+  if (valSpan) valSpan.textContent = String(value);
 }
 
 export function applyControlState(state, skipRender = false, levelToBitsMap) {
@@ -443,12 +445,12 @@ function saveCurrentPreset() {
   const explicit = els.presetName.value.trim();
   const rawName = explicit || `preset-${nowStamp()}`;
   const name = normalizePresetName(rawName);
-  
+
   if (!name) {
     setStatus("error", "Invalid preset name. Use letters, numbers, hyphens, and underscores only.");
     return;
   }
-  
+
   const previous = savedPresets[name];
   savedPresets[name] = currentControlState();
   const persistResult = persistPresets();
@@ -731,7 +733,11 @@ export function bindEvents(levelToBitsMap) {
     "rxCarrierOffset",
     "rxPhaseOffset",
   ].forEach((id) => {
-    els[id].addEventListener("input", debouncedRender);
+    els[id].addEventListener("input", (e) => {
+      const valSpan = document.getElementById(`${id}Val`);
+      if (valSpan) valSpan.textContent = e.target.value;
+      debouncedRender();
+    });
   });
 
   els.refresh.addEventListener("click", () => render(levelToBitsMap));

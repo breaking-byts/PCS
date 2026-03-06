@@ -123,6 +123,55 @@ describe("signal simulation correctness", () => {
     expect(ber.rate).toBeLessThan(0.08);
   });
 
+  it("demodulates FM with meaningful baseband correlation in a clean channel", () => {
+    const params = makeParams({
+      carrierFreq: 330,
+      messageFreq: 30,
+      freqDev: 140,
+      snrDb: 55,
+      duration: 0.1,
+    });
+    const t = linspace(params.duration, SAMPLE_RATE);
+    const baseband = t.map((x) => params.messageAmp * Math.sin(2 * Math.PI * params.messageFreq * x));
+    const result = generateAnalog(t, params, "fm", baseband);
+    const corr = computeCorrelation(normalize(result.baseband), normalize(result.demodulated));
+    expect(corr).toBeGreaterThan(0.45);
+  });
+
+  it("demodulates PM with stable finite output in a clean channel", () => {
+    const params = makeParams({
+      carrierFreq: 320,
+      messageFreq: 26,
+      modIndex: 0.9,
+      snrDb: 55,
+      duration: 0.1,
+    });
+    const t = linspace(params.duration, SAMPLE_RATE);
+    const baseband = t.map((x) => params.messageAmp * Math.sin(2 * Math.PI * params.messageFreq * x));
+    const result = generateAnalog(t, params, "pm", baseband);
+    const normalized = normalize(result.demodulated);
+    const finiteValues = normalized.filter(Number.isFinite);
+    const peak = Math.max(...finiteValues.map((v) => Math.abs(v)));
+    expect(finiteValues.length).toBe(normalized.length);
+    expect(peak).toBeGreaterThan(0.05);
+  });
+
+  it("recovers FSK bits with low BER in a clean coherent link", () => {
+    const params = makeParams({
+      carrierFreq: 300,
+      bitRate: 200,
+      duration: 0.14,
+      freqDev: 90,
+      snrDb: 55,
+    });
+    const t = linspace(params.duration, SAMPLE_RATE);
+    const bitPool = deterministicBits(40000);
+    const result = generateDigital(t, params, "fsk", bitPool, levelToBitsMap);
+    const ber = computeBitErrorRate(result.txBits, result.rxBits);
+    expect(ber.total).toBeGreaterThan(0);
+    expect(ber.rate).toBeLessThan(0.12);
+  });
+
   it("improves BER with adaptive PLL + timing recovery under RX mismatch", () => {
     const base = makeParams({
       carrierFreq: 280,
@@ -185,6 +234,14 @@ describe("signal simulation correctness", () => {
       /Unsupported digital scheme/,
     );
     expect(() => generateAnalog(t, params, "oops", baseband)).toThrow(/Unsupported analog scheme/);
+  });
+
+  it("rejects invalid analog array inputs explicitly", () => {
+    const params = makeParams();
+    const t = linspace(params.duration, SAMPLE_RATE);
+    expect(() => generateAnalog(t, params, "am_dsb_lc", [])).toThrow(
+      /equally sized time\/baseband arrays/,
+    );
   });
 
   it("clamps integration windows to valid bounds", () => {

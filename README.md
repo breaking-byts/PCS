@@ -97,6 +97,7 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - restrictive `Permissions-Policy`
+- asset caching policy (`max-age=600`, `stale-while-revalidate=86400`)
 
 ## Project Structure
 
@@ -105,8 +106,12 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 ├── js/
 │   ├── main.js        # App bootstrap and initialization
 │   ├── ui.js          # UI orchestration, state, and event binding
+│   ├── ui-presets.js  # Preset persistence and validation logic
+│   ├── ui-render-controller.js # Render orchestration and simulation pipeline
 │   ├── ui-exports.js  # CSV/PNG export services
 │   ├── ui-animations.js # GSAP animation bootstrap
+│   ├── analytics.js   # Privacy-aware functional analytics hooks
+│   ├── observability.js # Runtime error/event telemetry utilities
 │   ├── signal.js      # Public signal API surface
 │   ├── signal-core.js # Channel model, receiver sync, error metrics
 │   ├── signal-analog.js # Analog modulation/demodulation implementations

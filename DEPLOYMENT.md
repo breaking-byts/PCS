@@ -54,3 +54,8 @@ Runtime behavior can be controlled without rebuilding by setting:
 - Security headers use `img-src 'self'` and do not allow `data:` image sources.
 - `upgrade-insecure-requests` is enabled, so mixed HTTP requests are upgraded to HTTPS.
 - Keep third-party endpoints (if used for observability/analytics) on HTTPS and inside allowed CSP directives.
+
+## Cache Policy
+
+- HTML responses are configured with `Cache-Control: public, max-age=0, must-revalidate`.
+- `/js/*`, `/vendor/*`, and `/styles.css` use `Cache-Control: public, max-age=600, stale-while-revalidate=86400`.

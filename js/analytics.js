@@ -24,7 +24,7 @@ function getAnalyticsEndpoint() {
 
 function isDoNotTrackEnabled() {
   if (typeof navigator === 'undefined') return false;
-  const value = navigator.doNotTrack || window?.doNotTrack || navigator.msDoNotTrack;
+  const value = navigator.doNotTrack || globalThis.window?.doNotTrack || navigator.msDoNotTrack;
   return value === '1' || value === 'yes';
 }
 

@@ -313,6 +313,8 @@ function setControlValue(id, value) {
   if (value === undefined || value === null) return;
   if (!els[id]) return;
   els[id].value = String(value);
+  const valSpan = document.getElementById(`${id}Val`);
+  if (valSpan) valSpan.textContent = String(value);
 }
 
 export function applyControlState(state, skipRender = false, levelToBitsMap) {
@@ -426,7 +428,11 @@ export function bindEvents(levelToBitsMap) {
     'rxCarrierOffset',
     'rxPhaseOffset',
   ].forEach((id) => {
-    els[id].addEventListener('input', debouncedRender);
+    els[id].addEventListener('input', (e) => {
+      const valSpan = document.getElementById(`${id}Val`);
+      if (valSpan) valSpan.textContent = e.target.value;
+      debouncedRender();
+    });
   });
 
   els.refresh.addEventListener('click', () => render(levelToBitsMap));

@@ -55,7 +55,9 @@ export function drawLinePlot(canvas, series) {
   valid.forEach((entry) => {
     if (!entry.data || entry.data.length < 2) return;
     ctx.strokeStyle = entry.color;
-    ctx.lineWidth = 1.45;
+    ctx.shadowColor = entry.color;
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 2.0;
     ctx.beginPath();
     let hasMoved = false;
     entry.data.forEach((y, idx) => {
@@ -112,7 +114,9 @@ export function drawXYPlot(canvas, xList, yList, colorsList) {
     const { x: xVals, y: yVals, color } = pair;
     if (xVals.length !== yVals.length) return;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.35;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 2.0;
     ctx.beginPath();
     let hasMoved = false;
     xVals.forEach((xVal, idx) => {
@@ -159,11 +163,13 @@ export function drawConstellation(canvas, groups) {
 
   normalizedGroups.forEach((group) => {
     ctx.fillStyle = group.color;
+    ctx.shadowColor = group.color;
+    ctx.shadowBlur = 8;
     (group.points || []).forEach((p) => {
       const x = width / 2 + (p.i / maxAbs) * (width / 2 - pad - 8);
       const y = height / 2 - (p.q / maxAbs) * (height / 2 - pad - 8);
       ctx.beginPath();
-      ctx.arc(x, y, 3.6, 0, 2 * Math.PI);
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
       ctx.fill();
     });
   });

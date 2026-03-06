@@ -104,14 +104,23 @@ describe("UI smoke tests", () => {
     const scheme = document.getElementById("scheme");
     const compareMode = document.getElementById("compareMode");
     const compareScheme = document.getElementById("compareScheme");
+    const carrierFreq = document.getElementById("carrierFreq");
+    const carrierFreqInput = document.getElementById("carrierFreqInput");
+    const carrierFreqVal = document.getElementById("carrierFreqVal");
 
     expect(family.options.length).toBeGreaterThan(0);
     expect(scheme.options.length).toBeGreaterThan(0);
     expect(compareScheme.disabled).toBe(true);
+    expect(carrierFreqVal.textContent).toBe(carrierFreq.value);
 
     compareMode.checked = true;
     compareMode.dispatchEvent(new window.Event("change", { bubbles: true }));
     expect(compareScheme.disabled).toBe(false);
+
+    carrierFreqInput.value = "310";
+    carrierFreqInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+    expect(carrierFreq.value).toBe("310");
+    expect(carrierFreqVal.textContent).toBe("310");
 
     raf.mockClear();
     scheme.dispatchEvent(new window.Event("change", { bubbles: true }));

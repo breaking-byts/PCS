@@ -5,21 +5,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description"
-    content="Terminal-style web studio for visualizing analog and digital signal modulation and demodulation." />
-  <title>Modulation Studio // Terminal</title>
+    content="Professional modulation studio for visualizing analog and digital signal behavior, impairments, and recovery." />
+  <title>Modulation Studio</title>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./vendor/katex/katex.min.css" />
 </head>
 
 <body>
   <a href="#family" class="skip-link">Skip to main content</a>
+
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="#main-content">Modulation Studio</a>
       <nav class="topnav" aria-label="Main navigation">
         <a href="#studio">Studio</a>
+        <a href="#plots">Plots</a>
         <a href="#scenarios">Scenarios</a>
-        <a href="#learn">Learn</a>
+        <a href="#learn">Atlas</a>
       </nav>
     </div>
   </header>
@@ -28,35 +30,61 @@
     <section class="hero panel-soft" data-section="hero">
       <div class="hero-copy">
         <p class="eyebrow">Signal Systems Lab</p>
-        <h1>Design, disturb, demodulate, and compare modulation schemes live.</h1>
-        <p>
-          This deployable web app lets you tune analog and digital modulation,
-          inject channel impairments, and inspect waveform, spectrum, constellation,
-          and recovery quality in one workspace.
+        <h1>Professional-grade modulation analysis in a single live workspace.</h1>
+        <p class="hero-body">
+          Tune analog and digital schemes, introduce channel impairments, compare recovery paths,
+          and inspect the waveform, spectrum, and constellation views without leaving the studio.
         </p>
         <div class="hero-actions">
           <button id="starterPresetBtn" class="btn btn-primary" type="button">Load Starter Demo</button>
           <a class="btn btn-ghost" href="#studio">Open Studio</a>
         </div>
+        <ul class="hero-highlights" aria-label="Key capabilities">
+          <li>Deterministic playback for repeatable tests</li>
+          <li>Preset workflows for classroom and debug scenarios</li>
+          <li>Comparison overlays for side-by-side analysis</li>
+        </ul>
       </div>
-      <div class="hero-stats" role="list" aria-label="Feature highlights">
-        <article class="stat" role="listitem">
-          <h2>9</h2>
-          <p>Modulation Schemes</p>
+
+      <div class="hero-side">
+        <article class="hero-status-card" aria-label="Product summary">
+          <p class="eyebrow eyebrow--compact">Operational View</p>
+          <h2>Built for fast parameter sweeps and signal-quality inspection.</h2>
+          <dl class="hero-kpis">
+            <div>
+              <dt>Mode</dt>
+              <dd>Interactive lab</dd>
+            </div>
+            <div>
+              <dt>Primary focus</dt>
+              <dd>Modulate, impair, recover, compare</dd>
+            </div>
+            <div>
+              <dt>Outputs</dt>
+              <dd>Waveform, FFT, constellation, metrics</dd>
+            </div>
+          </dl>
         </article>
-        <article class="stat" role="listitem">
-          <h2>3</h2>
-          <p>Baseband Waveforms</p>
-        </article>
-        <article class="stat" role="listitem">
-          <h2>2</h2>
-          <p>Channel Distortion Models</p>
-        </article>
+
+        <div class="hero-stats" role="list" aria-label="Feature highlights">
+          <article class="stat" role="listitem">
+            <h2>9</h2>
+            <p>Modulation schemes</p>
+          </article>
+          <article class="stat" role="listitem">
+            <h2>3</h2>
+            <p>Baseband models</p>
+          </article>
+          <article class="stat" role="listitem">
+            <h2>4</h2>
+            <p>Analysis surfaces</p>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section class="panel" id="studio" data-section="studio">
-      <div class="studio-head">
+    <section class="panel studio-panel" id="studio" data-section="studio">
+      <div class="section-head section-head--studio">
         <div>
           <p class="eyebrow">Studio</p>
           <h2>Interactive Modulation Workbench</h2>
@@ -66,123 +94,299 @@
           <span id="bandwidthEstimate" class="bandwidth">Estimated Occupied BW: --</span>
         </div>
       </div>
+
+      <div class="studio-ribbon" aria-label="Studio highlights">
+        <span class="ribbon-pill">Preset-driven experimentation</span>
+        <span class="ribbon-pill">Comparison-aware plots</span>
+        <span class="ribbon-pill">Export-ready outputs</span>
+      </div>
     </section>
 
-    <section class="studio-layout" data-section="workspace">
+    <section class="workspace-shell" data-section="workspace">
       <aside class="panel controls-panel">
-        <h3>Controls</h3>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow eyebrow--compact">Control Rail</p>
+            <h3>Configure source, channel, and session tools</h3>
+          </div>
+          <p class="panel-caption">Every control updates the same active analysis session.</p>
+        </div>
+
         <div class="fieldset-grid">
           <fieldset>
             <legend>Signal Setup</legend>
-            <label>
-              Modulation Family
+
+            <label class="control-field">
+              <span class="control-label">Modulation Family</span>
               <select id="family"></select>
             </label>
-            <label>
-              Scheme
+
+            <label class="control-field">
+              <span class="control-label">Scheme</span>
               <select id="scheme"></select>
             </label>
-            <label>
-              Baseband Signal
+
+            <label class="control-field">
+              <span class="control-label">Baseband Signal</span>
               <select id="baseband"></select>
             </label>
-            <label>
-              Carrier Frequency fc (Hz)
-              <input id="carrierFreq" type="number" value="250" min="20" max="2200" step="10" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Carrier Frequency</span>
+                <span class="control-unit">fc · Hz</span>
+              </span>
+              <div class="control-slider">
+                <input id="carrierFreq" type="range" value="250" min="20" max="2200" step="10" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="carrierFreqVal" for="carrierFreq">250</output>
+                  <input id="carrierFreqInput" class="control-number" type="number" value="250" min="20" max="2200"
+                    step="10" inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Message Frequency fm (Hz)
-              <input id="messageFreq" type="number" value="20" min="1" max="500" step="1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Message Frequency</span>
+                <span class="control-unit">fm · Hz</span>
+              </span>
+              <div class="control-slider">
+                <input id="messageFreq" type="range" value="20" min="1" max="500" step="1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="messageFreqVal" for="messageFreq">20</output>
+                  <input id="messageFreqInput" class="control-number" type="number" value="20" min="1" max="500"
+                    step="1" inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Carrier Amplitude Ac
-              <input id="carrierAmp" type="number" value="1" min="0.2" max="5" step="0.1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Carrier Amplitude</span>
+                <span class="control-unit">Ac</span>
+              </span>
+              <div class="control-slider">
+                <input id="carrierAmp" type="range" value="1" min="0.2" max="5" step="0.1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="carrierAmpVal" for="carrierAmp">1</output>
+                  <input id="carrierAmpInput" class="control-number" type="number" value="1" min="0.2" max="5"
+                    step="0.1" inputmode="decimal" />
+                </div>
+              </div>
             </label>
-            <label>
-              Message Amplitude Am
-              <input id="messageAmp" type="number" value="1" min="0.1" max="5" step="0.1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Message Amplitude</span>
+                <span class="control-unit">Am</span>
+              </span>
+              <div class="control-slider">
+                <input id="messageAmp" type="range" value="1" min="0.1" max="5" step="0.1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="messageAmpVal" for="messageAmp">1</output>
+                  <input id="messageAmpInput" class="control-number" type="number" value="1" min="0.1" max="5"
+                    step="0.1" inputmode="decimal" />
+                </div>
+              </div>
             </label>
-            <label>
-              Modulation Index (mu / kp)
-              <input id="modIndex" type="number" value="0.8" min="0.1" max="5" step="0.1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Modulation Index</span>
+                <span class="control-unit">mu / kp</span>
+              </span>
+              <div class="control-slider">
+                <input id="modIndex" type="range" value="0.8" min="0.1" max="5" step="0.1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="modIndexVal" for="modIndex">0.8</output>
+                  <input id="modIndexInput" class="control-number" type="number" value="0.8" min="0.1" max="5"
+                    step="0.1" inputmode="decimal" />
+                </div>
+              </div>
             </label>
-            <label>
-              Frequency Deviation kf (Hz)
-              <input id="freqDev" type="number" value="60" min="1" max="600" step="1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Frequency Deviation</span>
+                <span class="control-unit">kf · Hz</span>
+              </span>
+              <div class="control-slider">
+                <input id="freqDev" type="range" value="60" min="1" max="600" step="1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="freqDevVal" for="freqDev">60</output>
+                  <input id="freqDevInput" class="control-number" type="number" value="60" min="1" max="600" step="1"
+                    inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Bit Rate Rb (bps)
-              <input id="bitRate" type="number" value="120" min="10" max="2000" step="10" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Bit Rate</span>
+                <span class="control-unit">Rb · bps</span>
+              </span>
+              <div class="control-slider">
+                <input id="bitRate" type="range" value="120" min="10" max="2000" step="10" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="bitRateVal" for="bitRate">120</output>
+                  <input id="bitRateInput" class="control-number" type="number" value="120" min="10" max="2000"
+                    step="10" inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Duration (s)
-              <input id="duration" type="number" value="0.08" min="0.02" max="0.4" step="0.01" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Duration</span>
+                <span class="control-unit">Seconds</span>
+              </span>
+              <div class="control-slider">
+                <input id="duration" type="range" value="0.08" min="0.02" max="0.4" step="0.01" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="durationVal" for="duration">0.08</output>
+                  <input id="durationInput" class="control-number" type="number" value="0.08" min="0.02" max="0.4"
+                    step="0.01" inputmode="decimal" />
+                </div>
+              </div>
             </label>
           </fieldset>
 
           <fieldset>
             <legend>Channel + Receiver</legend>
-            <label>
-              Channel SNR (dB)
-              <input id="snrDb" type="number" value="24" min="0" max="60" step="1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Channel SNR</span>
+                <span class="control-unit">dB</span>
+              </span>
+              <div class="control-slider">
+                <input id="snrDb" type="range" value="24" min="0" max="60" step="1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="snrDbVal" for="snrDb">24</output>
+                  <input id="snrDbInput" class="control-number" type="number" value="24" min="0" max="60" step="1"
+                    inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Fading Depth (0-1)
-              <input id="fadingDepth" type="number" value="0.25" min="0" max="0.95" step="0.05" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>Fading Depth</span>
+                <span class="control-unit">0 to 1</span>
+              </span>
+              <div class="control-slider">
+                <input id="fadingDepth" type="range" value="0.25" min="0" max="0.95" step="0.05" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="fadingDepthVal" for="fadingDepth">0.25</output>
+                  <input id="fadingDepthInput" class="control-number" type="number" value="0.25" min="0" max="0.95"
+                    step="0.05" inputmode="decimal" />
+                </div>
+              </div>
             </label>
-            <label>
-              RX Carrier Offset (Hz)
-              <input id="rxCarrierOffset" type="number" value="0" min="-300" max="300" step="1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>RX Carrier Offset</span>
+                <span class="control-unit">Hz</span>
+              </span>
+              <div class="control-slider">
+                <input id="rxCarrierOffset" type="range" value="0" min="-300" max="300" step="1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="rxCarrierOffsetVal" for="rxCarrierOffset">0</output>
+                  <input id="rxCarrierOffsetInput" class="control-number" type="number" value="0" min="-300" max="300"
+                    step="1" inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              RX Phase Offset (deg)
-              <input id="rxPhaseOffset" type="number" value="0" min="-180" max="180" step="1" />
+
+            <label class="control-field control-field--wide">
+              <span class="control-label">
+                <span>RX Phase Offset</span>
+                <span class="control-unit">Degrees</span>
+              </span>
+              <div class="control-slider">
+                <input id="rxPhaseOffset" type="range" value="0" min="-180" max="180" step="1" />
+                <div class="control-slider-meta">
+                  <output class="readout" id="rxPhaseOffsetVal" for="rxPhaseOffset">0</output>
+                  <input id="rxPhaseOffsetInput" class="control-number" type="number" value="0" min="-180" max="180"
+                    step="1" inputmode="numeric" />
+                </div>
+              </div>
             </label>
-            <label>
-              Receiver Model
+
+            <label class="control-field">
+              <span class="control-label">Receiver Model</span>
               <select id="receiverModel">
                 <option value="manual">Manual Coherent</option>
                 <option value="pll">Adaptive PLL</option>
               </select>
             </label>
-            <label class="checkbox-row">
-              <input id="timingRecovery" type="checkbox" />
-              Enable Timing Recovery
+
+            <label class="toggle-row">
+              <span class="toggle-copy">
+                <span>Enable Timing Recovery</span>
+                <small>Stabilize digital recovery in impaired channels.</small>
+              </span>
+              <span class="toggle-switch">
+                <input id="timingRecovery" type="checkbox" />
+                <span class="toggle-track"></span>
+              </span>
             </label>
           </fieldset>
 
           <fieldset>
             <legend>Comparison</legend>
-            <label class="checkbox-row">
-              <input id="compareMode" type="checkbox" />
-              Enable Comparison Mode
+
+            <label class="toggle-row">
+              <span class="toggle-copy">
+                <span>Enable Comparison Mode</span>
+                <small>Overlay a second scheme using the same conditions.</small>
+              </span>
+              <span class="toggle-switch">
+                <input id="compareMode" type="checkbox" />
+                <span class="toggle-track"></span>
+              </span>
             </label>
-            <label>
-              Compare Scheme
+
+            <label class="control-field">
+              <span class="control-label">Compare Scheme</span>
               <select id="compareScheme" disabled></select>
             </label>
           </fieldset>
 
           <fieldset>
             <legend>Session Tools</legend>
-            <label class="checkbox-row">
-              <input id="deterministicMode" type="checkbox" />
-              Deterministic Mode (Seed RNG)
+
+            <label class="toggle-row">
+              <span class="toggle-copy">
+                <span>Deterministic Mode</span>
+                <small>Lock the RNG for reproducible results and exports.</small>
+              </span>
+              <span class="toggle-switch">
+                <input id="deterministicMode" type="checkbox" />
+                <span class="toggle-track"></span>
+              </span>
             </label>
-            <label>
-              RNG Seed
-              <input id="rngSeed" type="number" value="12345" min="0" max="4294967295" step="1" />
+
+            <label class="control-field">
+              <span class="control-label">RNG Seed</span>
+              <input id="rngSeed" class="control-number control-number--full" type="number" value="12345" min="0"
+                max="4294967295" step="1" inputmode="numeric" />
             </label>
-            <label>
-              Preset Name
+
+            <label class="control-field">
+              <span class="control-label">Preset Name</span>
               <input id="presetName" type="text" placeholder="e.g. noisy-qpsk-lab" />
             </label>
-            <label>
-              Saved Presets
+
+            <label class="control-field">
+              <span class="control-label">Saved Presets</span>
               <select id="savedPresetSelect">
                 <option value="">No presets saved</option>
               </select>
             </label>
+
             <div class="button-row">
               <button id="refresh" class="btn btn-primary" type="button">Regenerate</button>
               <button id="resetDefaults" class="btn btn-secondary" type="button">Reset Defaults</button>
@@ -196,99 +400,163 @@
         </div>
       </aside>
 
-      <section class="panel insights-panel">
-        <h3>Equations</h3>
-        <p><strong>Baseband:</strong> <span id="basebandEq"></span></p>
-        <p><strong>Modulation:</strong> <span id="modEq"></span></p>
-        <p><strong>Demodulation:</strong> <span id="demodEq"></span></p>
-        <p><strong>Compare Modulation:</strong> <span id="compareModEq">N/A</span></p>
-        <p><strong>Compare Demodulation:</strong> <span id="compareDemodEq">N/A</span></p>
+      <div class="workspace-main">
+        <section class="panel insights-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow--compact">Analysis Surface</p>
+              <h3>Equations, diagnostics, and scheme context</h3>
+            </div>
+            <p class="panel-caption">The right rail stays anchored to the active simulation state.</p>
+          </div>
 
-        <h3>Metrics</h3>
-        <p><strong>Primary:</strong> <span id="primaryMetrics"></span></p>
-        <p><strong>Comparison:</strong> <span id="compareMetrics">Disabled</span></p>
+          <div class="insight-grid">
+            <article class="info-card">
+              <h4>Signal Chain</h4>
+              <dl class="info-list">
+                <div>
+                  <dt>Baseband</dt>
+                  <dd><span id="basebandEq"></span></dd>
+                </div>
+                <div>
+                  <dt>Modulation</dt>
+                  <dd><span id="modEq"></span></dd>
+                </div>
+                <div>
+                  <dt>Demodulation</dt>
+                  <dd><span id="demodEq"></span></dd>
+                </div>
+                <div>
+                  <dt>Compare Mod</dt>
+                  <dd><span id="compareModEq">N/A</span></dd>
+                </div>
+                <div>
+                  <dt>Compare Demod</dt>
+                  <dd><span id="compareDemodEq">N/A</span></dd>
+                </div>
+              </dl>
+            </article>
 
-        <h3>Plot Legend</h3>
-        <div id="plotLegend" class="legend-list"></div>
+            <article class="info-card">
+              <h4>Diagnostics</h4>
+              <dl class="metric-list">
+                <div>
+                  <dt>Primary</dt>
+                  <dd id="primaryMetrics"></dd>
+                </div>
+                <div>
+                  <dt>Comparison</dt>
+                  <dd id="compareMetrics">Disabled</dd>
+                </div>
+              </dl>
+            </article>
 
-        <h3>Modulation Hierarchy</h3>
-        <div id="taxonomy" class="taxonomy"></div>
-      </section>
+            <article class="info-card">
+              <h4>Plot Legend</h4>
+              <div id="plotLegend" class="legend-list"></div>
+            </article>
+
+            <article class="info-card info-card--wide">
+              <h4>Modulation Hierarchy</h4>
+              <div id="taxonomy" class="taxonomy"></div>
+            </article>
+          </div>
+        </section>
+      </div>
     </section>
 
-    <section class="panel" id="scenarios" data-section="scenarios">
+    <section class="panel scenarios-panel" id="scenarios" data-section="scenarios">
       <div class="section-head">
-        <h2>Scenario Presets</h2>
-        <p>Start quickly with curated parameter sets and then customize.</p>
+        <div>
+          <p class="eyebrow eyebrow--compact">Scenario Presets</p>
+          <h2>Jump into representative links before tuning manually</h2>
+        </div>
+        <p>Curated starting points for analog clarity, digital stress, and recovery mismatch analysis.</p>
       </div>
+
       <div class="scenario-grid">
         <article class="scenario-card">
           <h3>Clean Analog Link</h3>
           <p>Conventional AM with high SNR and no receiver mismatch.</p>
-          <button class="btn btn-secondary scenario-btn" data-scenario="cleanAnalog" type="button">
-            Apply Scenario
-          </button>
+          <button class="btn btn-secondary scenario-btn" data-scenario="cleanAnalog" type="button">Apply Scenario</button>
         </article>
         <article class="scenario-card">
           <h3>Noisy BPSK</h3>
-          <p>Digital link with low SNR to expose BER impact and recovery limits.</p>
-          <button class="btn btn-secondary scenario-btn" data-scenario="noisyBpsk" type="button">
-            Apply Scenario
-          </button>
+          <p>Low-SNR digital link to expose BER pressure and recovery limits.</p>
+          <button class="btn btn-secondary scenario-btn" data-scenario="noisyBpsk" type="button">Apply Scenario</button>
         </article>
         <article class="scenario-card">
           <h3>Carrier Offset Stress</h3>
-          <p>QPSK with receiver frequency and phase mismatch for impairment study.</p>
-          <button class="btn btn-secondary scenario-btn" data-scenario="offsetQpsk" type="button">
-            Apply Scenario
-          </button>
+          <p>QPSK with frequency and phase mismatch to probe synchronization robustness.</p>
+          <button class="btn btn-secondary scenario-btn" data-scenario="offsetQpsk" type="button">Apply Scenario</button>
         </article>
         <article class="scenario-card">
           <h3>Wideband FM</h3>
-          <p>FM with larger deviation to observe Carson bandwidth expansion.</p>
-          <button class="btn btn-secondary scenario-btn" data-scenario="wideFm" type="button">
-            Apply Scenario
-          </button>
+          <p>High-deviation FM to inspect Carson bandwidth growth and demodulated behavior.</p>
+          <button class="btn btn-secondary scenario-btn" data-scenario="wideFm" type="button">Apply Scenario</button>
         </article>
       </div>
     </section>
 
-    <section class="plot-grid" data-section="plots">
-      <article class="panel plot-card">
-        <h3>Baseband (Time Domain)</h3>
-        <canvas id="basebandCanvas" width="720" height="240" role="img" aria-label="Baseband time domain waveform plot"></canvas>
-      </article>
-      <article class="panel plot-card">
-        <h3>Received Signal (After Channel)</h3>
-        <canvas id="modulatedCanvas" width="720" height="240" role="img" aria-label="Received signal waveform after channel effects"></canvas>
-      </article>
-      <article class="panel plot-card">
-        <h3>Demodulated Signal (Time Domain)</h3>
-        <canvas id="demodulatedCanvas" width="720" height="240" role="img" aria-label="Demodulated signal time domain waveform"></canvas>
-      </article>
-      <article class="panel plot-card">
-        <h3>Frequency Spectrum (FFT Magnitude)</h3>
-        <canvas id="spectrumCanvas" width="720" height="240" role="img" aria-label="Frequency spectrum magnitude plot"></canvas>
-      </article>
-      <article class="panel plot-card" id="constellationPanel">
-        <h3>Constellation Plot</h3>
-        <canvas id="constellationCanvas" width="720" height="260" role="img" aria-label="I-Q constellation plot for digital modulation"></canvas>
-      </article>
+    <section class="plots-panel" id="plots" data-section="plots">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow eyebrow--compact">Plots</p>
+          <h2>Live analysis surfaces</h2>
+        </div>
+        <p>Every card reflects the active primary scheme and optional comparison overlay.</p>
+      </div>
+
+      <div class="plot-grid">
+        <article class="panel plot-card">
+          <h3>Baseband</h3>
+          <p class="plot-caption">Normalized time-domain source signal.</p>
+          <canvas id="basebandCanvas" width="720" height="240" role="img" aria-label="Baseband time domain waveform plot"></canvas>
+        </article>
+
+        <article class="panel plot-card">
+          <h3>Received Signal</h3>
+          <p class="plot-caption">Post-channel waveform with impairments applied.</p>
+          <canvas id="modulatedCanvas" width="720" height="240" role="img"
+            aria-label="Received signal waveform after channel effects"></canvas>
+        </article>
+
+        <article class="panel plot-card">
+          <h3>Demodulated Signal</h3>
+          <p class="plot-caption">Recovered output after the selected receiver path.</p>
+          <canvas id="demodulatedCanvas" width="720" height="240" role="img"
+            aria-label="Demodulated signal time domain waveform"></canvas>
+        </article>
+
+        <article class="panel plot-card">
+          <h3>Spectrum</h3>
+          <p class="plot-caption">FFT magnitude view of the received signal.</p>
+          <canvas id="spectrumCanvas" width="720" height="240" role="img" aria-label="Frequency spectrum magnitude plot"></canvas>
+        </article>
+
+        <article class="panel plot-card plot-card--wide" id="constellationPanel">
+          <h3>Constellation</h3>
+          <p class="plot-caption">I/Q symbol view for digital modulation schemes.</p>
+          <canvas id="constellationCanvas" width="720" height="260" role="img"
+            aria-label="I-Q constellation plot for digital modulation"></canvas>
+        </article>
+      </div>
     </section>
 
-    <section id="learn" class="panel" data-section="atlas">
+    <section id="learn" class="panel atlas-panel" data-section="atlas">
       <div class="section-head">
-        <h2>Modulation Atlas</h2>
-        <p>Reference view of family groupings and equations used in the simulator.</p>
+        <div>
+          <p class="eyebrow eyebrow--compact">Reference Atlas</p>
+          <h2>Scheme families and equations at a glance</h2>
+        </div>
+        <p>Use the atlas to contextualize the active control selections and compare families quickly.</p>
       </div>
       <div id="atlas" class="atlas-grid"></div>
     </section>
   </main>
 
   <footer class="footer">
-    <p>
-      Built for deployment as a static site on Netlify, Vercel, or GitHub Pages.
-    </p>
+    <p>Built as a deployable static studio for Netlify, Vercel, and GitHub Pages.</p>
   </footer>
 
   <script src="./vendor/gsap/gsap.min.js"></script>

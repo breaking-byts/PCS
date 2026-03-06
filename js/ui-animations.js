@@ -17,7 +17,7 @@ export function initGsapAnimations() {
     gsap.to(sections, {
       opacity: 1,
       y: 0,
-      duration: 0.5,
+      duration: 0.55,
       stagger: 0.1,
       ease: 'power2.out',
       delay: 0.1,
@@ -25,30 +25,28 @@ export function initGsapAnimations() {
 
     const heroH1 = document.querySelector('.hero-copy h1');
     if (heroH1) {
-      const glitchTL = gsap.timeline({ delay: 0.8 });
-      glitchTL
-        .to(heroH1, {
-          x: -2,
-          y: 1,
-          textShadow: '2px 0 #ff003c, -2px 0 #00fff2',
-          duration: 0.08,
-          ease: 'power4.in',
-        })
-        .to(heroH1, {
-          x: 2,
-          y: -1,
-          textShadow: '-2px 0 #ff003c, 2px 0 #00fff2',
-          duration: 0.08,
-          ease: 'power4.out',
-        })
-        .to(heroH1, { x: -1, y: 2, duration: 0.06, ease: 'none' })
-        .to(heroH1, { x: 0, y: 0, textShadow: 'none', duration: 0.1, ease: 'power2.out' });
+      if (typeof gsap.fromTo === 'function') {
+        gsap.fromTo(
+          heroH1,
+          { y: 10, opacity: 0.3, letterSpacing: '0.06em' },
+          { y: 0, opacity: 1, letterSpacing: '0', duration: 0.8, delay: 0.15, ease: 'power2.out' },
+        );
+      } else {
+        gsap.to(heroH1, {
+          y: 0,
+          opacity: 1,
+          letterSpacing: '0',
+          duration: 0.8,
+          delay: 0.15,
+          ease: 'power2.out',
+        });
+      }
     }
 
     sections.forEach((el) => {
       ScrollTrigger.create({
         trigger: el,
-        start: 'top 88%',
+        start: 'top 90%',
         once: true,
         onEnter: () => {
           gsap.to(el, { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out' });

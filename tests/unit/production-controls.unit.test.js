@@ -55,6 +55,13 @@ describe('production controls', () => {
     expect(STYLES.includes('data:image')).toBe(false);
   });
 
+  it('does not reference undefined CSS custom properties', () => {
+    const defined = new Set([...STYLES.matchAll(/--([a-z0-9-]+)\s*:/g)].map((match) => match[1]));
+    const used = [...STYLES.matchAll(/var\(--([a-z0-9-]+)\)/g)].map((match) => match[1]);
+    const missing = [...new Set(used.filter((token) => !defined.has(token)))];
+    expect(missing).toEqual([]);
+  });
+
   it('registers window handlers for error telemetry', () => {
     const handlers = {};
     const addEventListener = vi.fn((eventName, handler) => {

@@ -19,6 +19,7 @@ import {
 } from './ui-presets.js';
 import { createRenderController } from './ui-render-controller.js';
 import { els, ensureRequiredUiElements, getScenarioButtons } from './ui-dom.js';
+import { bindNumericControls, NUMERIC_CONTROL_IDS, syncNumericControl } from './ui-controls.js';
 
 let eventsBound = false;
 let renderController = null;
@@ -243,6 +244,10 @@ export function currentControlState() {
 function setControlValue(id, value) {
   if (value === undefined || value === null) return;
   if (!els[id]) return;
+  if (NUMERIC_CONTROL_IDS.includes(id)) {
+    syncNumericControl(id, value);
+    return;
+  }
   els[id].value = String(value);
 }
 
@@ -343,22 +348,7 @@ export function bindEvents(levelToBitsMap) {
     debounceTimer = setTimeout(() => render(levelToBitsMap), 60);
   };
 
-  [
-    'carrierFreq',
-    'messageFreq',
-    'carrierAmp',
-    'messageAmp',
-    'modIndex',
-    'freqDev',
-    'bitRate',
-    'duration',
-    'snrDb',
-    'fadingDepth',
-    'rxCarrierOffset',
-    'rxPhaseOffset',
-  ].forEach((id) => {
-    els[id].addEventListener('input', debouncedRender);
-  });
+  bindNumericControls(debouncedRender);
 
   els.refresh.addEventListener('click', () => render(levelToBitsMap));
 

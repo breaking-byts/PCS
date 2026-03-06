@@ -1,15 +1,7 @@
-function getRuntimeConfig() {
-  if (typeof window === 'undefined' || typeof window.__MOD_STUDIO_CONFIG__ !== 'object') {
-    return {};
-  }
-  return window.__MOD_STUDIO_CONFIG__ || {};
-}
+import { getRuntimeConfigString } from './runtime-config.js';
 
 function getObservabilityEndpoint() {
-  const endpoint = getRuntimeConfig().observabilityEndpoint;
-  if (typeof endpoint !== 'string') return null;
-  const trimmed = endpoint.trim();
-  return trimmed ? trimmed : null;
+  return getRuntimeConfigString('observabilityEndpoint');
 }
 
 function getPageMetadata() {

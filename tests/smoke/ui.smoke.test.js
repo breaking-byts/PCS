@@ -78,6 +78,11 @@ async function loadExportsModule() {
   return import(moduleUrl);
 }
 
+async function loadPresetModule() {
+  const moduleUrl = `${pathToFileURL(path.join(ROOT, "js/ui-presets.js")).href}?ts=${Date.now()}`;
+  return import(moduleUrl);
+}
+
 beforeEach(() => {
   vi.resetModules();
 });
@@ -196,14 +201,7 @@ describe("preset sanitization and validation", () => {
   });
 
   it("normalizes preset names to safe format", async () => {
-    const normalizePresetName = (name) => {
-      if (!name || typeof name !== 'string') return '';
-      let normalized = name.trim().toLowerCase();
-      normalized = normalized.replace(/[^a-z0-9\-_.]/g, '-');
-      normalized = normalized.replace(/-+/g, '-');
-      normalized = normalized.replace(/^-+|-+$/g, '');
-      return normalized.slice(0, 64);
-    };
+    const { normalizePresetName } = await loadPresetModule();
 
     expect(normalizePresetName("My Cool Preset!")).toBe("my-cool-preset");
     expect(normalizePresetName("---test---")).toBe("test");
@@ -212,30 +210,7 @@ describe("preset sanitization and validation", () => {
   });
 
   it("validates loaded preset data structure", async () => {
-    const sanitizePresetData = (data) => {
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        return null;
-      }
-      const VALID_KEYS = [
-        'family', 'scheme', 'baseband', 'carrierFreq', 'messageFreq', 'carrierAmp',
-        'messageAmp', 'modIndex', 'freqDev', 'bitRate', 'duration', 'snrDb',
-        'fadingDepth', 'rxCarrierOffset', 'rxPhaseOffset', 'receiverModel',
-        'timingRecovery', 'compareMode', 'compareScheme', 'deterministicMode', 'rngSeed'
-      ];
-      const sanitized = {};
-      for (const key of VALID_KEYS) {
-        if (data[key] !== undefined && data[key] !== null) {
-          const value = data[key];
-          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            sanitized[key] = value;
-          }
-        }
-      }
-      if (typeof sanitized.family !== 'string' || typeof sanitized.scheme !== 'string') {
-        return null;
-      }
-      return sanitized;
-    };
+    const { sanitizePresetData } = await loadPresetModule();
 
     expect(sanitizePresetData(null)).toBe(null);
     expect(sanitizePresetData([])).toBe(null);
@@ -246,19 +221,7 @@ describe("preset sanitization and validation", () => {
   });
 
   it("rejects preset data with prototype pollution attempts", async () => {
-    const sanitizePresetData = (data) => {
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        return null;
-      }
-      const VALID_KEYS = ['family', 'scheme', 'baseband'];
-      const sanitized = {};
-      for (const key of VALID_KEYS) {
-        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined) {
-          sanitized[key] = data[key];
-        }
-      }
-      return sanitized;
-    };
+    const { sanitizePresetData } = await loadPresetModule();
 
     const malicious = { __proto__: { polluted: true }, family: "amplitude", scheme: "am_dsb_lc" };
     const result = sanitizePresetData(malicious);

@@ -1,4 +1,5 @@
 import { reportEvent } from './observability.js';
+import { getRuntimeConfigString, isRuntimeConfigEnabled } from './runtime-config.js';
 
 const ALLOWED_EVENTS = new Set([
   'app_loaded',
@@ -8,18 +9,8 @@ const ALLOWED_EVENTS = new Set([
   'export_png',
 ]);
 
-function getRuntimeConfig() {
-  if (typeof window === 'undefined' || typeof window.__MOD_STUDIO_CONFIG__ !== 'object') {
-    return {};
-  }
-  return window.__MOD_STUDIO_CONFIG__ || {};
-}
-
 function getAnalyticsEndpoint() {
-  const endpoint = getRuntimeConfig().analyticsEndpoint;
-  if (typeof endpoint !== 'string') return null;
-  const trimmed = endpoint.trim();
-  return trimmed ? trimmed : null;
+  return getRuntimeConfigString('analyticsEndpoint');
 }
 
 function isDoNotTrackEnabled() {
@@ -38,7 +29,7 @@ function isPrivacyOptOut() {
 }
 
 function isAnalyticsEnabledByConfig() {
-  return getRuntimeConfig().analyticsEnabled === true;
+  return isRuntimeConfigEnabled('analyticsEnabled');
 }
 
 function dispatchAnalytics(payload) {

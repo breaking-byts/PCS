@@ -8,6 +8,8 @@ import { initAnalytics, trackFunctionalEvent } from '../../js/analytics.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const NETLIFY = fs.readFileSync(path.join(ROOT, 'netlify.toml'), 'utf8');
 const VERCEL = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+const INDEX_HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const STYLES = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
 
 function extractNetlifyHeader(name) {
   const regex = new RegExp(`${name}\\s*=\\s*\"([^\"]+)\"`);
@@ -45,6 +47,12 @@ describe('production controls', () => {
     expect(extractVercelHeader('Cache-Control', '/js/(.*)')).toBe(expectedAssetCache);
     expect(extractVercelHeader('Cache-Control', '/vendor/(.*)')).toBe(expectedAssetCache);
     expect(extractVercelHeader('Cache-Control', '/styles.css')).toBe(expectedAssetCache);
+  });
+
+  it('does not rely on external runtime assets that violate CSP', () => {
+    expect(INDEX_HTML.includes('fonts.googleapis.com')).toBe(false);
+    expect(INDEX_HTML.includes('fonts.gstatic.com')).toBe(false);
+    expect(STYLES.includes('data:image')).toBe(false);
   });
 
   it('registers window handlers for error telemetry', () => {

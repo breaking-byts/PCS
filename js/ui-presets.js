@@ -19,7 +19,7 @@ function storageErrorMessage(err) {
   return 'Unable to save preset data in local storage.';
 }
 
-function normalizePresetName(name) {
+export function normalizePresetName(name) {
   if (!name || typeof name !== 'string') return '';
   let normalized = name.trim().toLowerCase();
   normalized = normalized.replace(/[^a-z0-9\-_.]/g, '-');
@@ -28,19 +28,19 @@ function normalizePresetName(name) {
   return normalized.slice(0, PRESET_NAME_MAX_LENGTH);
 }
 
-function isValidPresetName(name) {
+export function isValidPresetName(name) {
   if (!name || typeof name !== 'string') return false;
   if (name.length > PRESET_NAME_MAX_LENGTH) return false;
   return PRESET_NAME_PATTERN.test(name);
 }
 
-function sanitizePresetData(data) {
+export function sanitizePresetData(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return null;
   }
   const sanitized = {};
   for (const key of VALID_PRESET_KEYS) {
-    if (data[key] !== undefined && data[key] !== null) {
+    if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined && data[key] !== null) {
       const value = data[key];
       if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         sanitized[key] = value;
@@ -53,7 +53,7 @@ function sanitizePresetData(data) {
   return sanitized;
 }
 
-function validateLoadedPresets(raw) {
+export function validateLoadedPresets(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {};
   }

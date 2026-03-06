@@ -47,8 +47,8 @@
   --radius: 2px;
 
   /* type */
-  --font-display: "IBM Plex Mono", "JetBrains Mono", monospace;
-  --font-body: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+  --font-display: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+  --font-body: "JetBrains Mono", "Fira Code", "SFMono-Regular", "Consolas", monospace;
   --fs-xs: 0.68rem;
   --fs-sm: 0.78rem;
   --fs-md: 0.88rem;
@@ -134,7 +134,8 @@ body::after {
   pointer-events: none;
   z-index: 9999;
   background:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E"),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 9px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 7px),
     repeating-linear-gradient(0deg,
       transparent, transparent 3px,
       rgba(0, 0, 0, 0.06) 3px, rgba(0, 0, 0, 0.06) 4px);
